@@ -1,0 +1,30 @@
+Activo;Especie;Tipo;Cantidad;Var. diaria (%);Último precio ($);Precio prom. compra ($);Rend. (%);Rend. ($);Valorizado ($)
+ASML;Cedear Asml Holding Nv;CEDEAR;58;-6,310%;14.250,00;14.470,34 (calc.);-1,52%;-12.760,00;826.500,00
+COPX;Cedear Global X Copper Mining ETF;CEDEAR;70;-1,210%;8.970,00;8.379,29;7,04%;41.350,00;627.900,00
+GGAL;Grupo Financiero Galicia;Acción;161;-0,340%;7.145,00;6.123,32;16,68%;164.490,00;1.150.345,00
+GLD;Cedear SPDR Gold Trust;CEDEAR;105;-1,370%;12.920,00;13.960,00;-7,44%;-109.200,00;1.356.600,00
+IOLCAMA;IOL Cash Management;FCI;529.504,0020;0,070%;1,1049;1,0736;2,91%;16.564,21;585.073,28
+MELI;Cedear MercadoLibre Inc.;CEDEAR;22;1,900%;22.990,00;21.710,00;5,89%;28.160,00;505.780,00
+MSFT;Cedear Microsoft Corp.;CEDEAR;29;3,790%;19.980,00;19.873,45;0,53%;3.090,00;579.420,00
+NU;Cedear Nu Holdings Ltd.;CEDEAR;44;-0,170%;11.270,00;11.050,00;1,99%;9.680,00;495.880,00
+SLB;Cedear Schlumberger Ltd.;CEDEAR;15;0,870%;25.400,00;25.540,00;-0,54%;-2.100,00;381.000,00
+SPY;Cedear SPDR S&P 500;CEDEAR;15;0,290%;51.100,00;51.150,00;-0,09%;-750,00;766.500,00
+TX26;Bono Del Tesoro Boncer 2%;Bono;81.546;0,030%;1.341,50;1.313,23;2,15%;23.051,13;1.093.939,59
+TZX26;Bono Rep. Arg. Aj. Cer. V30;Bono;469.500;0,150%;375,70;355,21;5,76%;96.178,31;1.763.911,50
+URA;Cedear Global X Uranium ETF;CEDEAR;33;2,510%;15.900,00;14.438,97;10,11%;48.213,97;524.700,00
+VIST;Cedear Vista Oil & Gas;CEDEAR;12;0,630%;31.780,00;32.060,00;-0,87%;-3.360,00;381.360,00
+XLE;Cedear Energy Select Sector ETF;CEDEAR;9;-0,040%;41.040,00;40.880,00;0,39%;1.440,00;369.360,00
+XLV;Cedear State Street Health ETF;CEDEAR;78;-0,790%;7.470,00;7.555,00;-1,12%;-6.630,00;582.660,00
+XOM;Cedear Exxon Mobil Corp.;CEDEAR;17;0,180%;21.930,00;21.780,00;0,68%;2.550,00;372.810,00
+;;;;;;;;;;
+;TOTAL POSICIONES;;;;;;299.967,62;12.363.739,37
+;Efectivo pesos;;;;;;;;1.794,25
+;TOTAL CARTERA;;;;;;;;12.365.533,62
+;;;;;;;;;;
+;CONTEXTO DE CAPITAL;;;;;;;;;;
+;Capital inyectado 10/03/2026;;;;;;;;8.000.000,00
+;Capital inyectado 13/04/2026;;;;;;;;4.000.000,00
+;Total capital inyectado;;;;;;;;12.000.000,00
+;Costo base total (calculado);;;;;;;;12.063.771,75
+;Rendimiento sobre costo base;;;;;2,49%;;299.967,62;
+;Rendimiento sobre capital inyectado;;;;;3,05%;;365.533,62;

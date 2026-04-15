@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /c/dev/git/Inversiones status)",
+      "Bash(git init *)",
+      "Bash(git remote *)",
+      "Bash(git *)",
+      "Bash(python3 *)",
+      "Bash(pip3 list *)",
+      "Bash(pip list *)",
+      "Bash(python scripts/test_iol_api.py)",
+      "WebFetch(domain:api.invertironline.com)"
+    ]
+  }
+}
