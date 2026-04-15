@@ -4,6 +4,11 @@ secrets.*
 .env
 *.env
 
+# Node / Cloudflare Workers
+node_modules/
+.wrangler/
+dashboard/worker/.dev.vars
+
 # Python
 __pycache__/
 *.pyc

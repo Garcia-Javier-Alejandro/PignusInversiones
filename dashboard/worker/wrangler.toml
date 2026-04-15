@@ -1,0 +1,30 @@
+# wrangler.toml — configuración del Cloudflare Worker "pignus-api"
+#
+# Este Worker actúa como proxy seguro entre el frontend (Cloudflare Pages)
+# y la API de IOL. Maneja la autenticación con IOL y cachea el token en KV
+# para no autenticar en cada request.
+#
+# Para hacer deploy:
+#   cd dashboard/worker
+#   wrangler deploy
+#
+# Secrets que hay que configurar (NUNCA poner aquí):
+#   wrangler secret put IOL_USERNAME
+#   wrangler secret put IOL_PASSWORD
+#   wrangler secret put ALLOWED_ORIGIN   ← URL de Cloudflare Pages (ej: https://pignus.pages.dev)
+
+name = "pignus-api"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+# KV Namespace para cachear el token de IOL y evitar autenticar en cada request.
+# Pasos para crear:
+#   1. wrangler kv namespace create TOKEN_CACHE
+#   2. Copiar el "id" que devuelve y pegarlo abajo en lugar de ""
+[[kv_namespaces]]
+binding = "TOKEN_CACHE"
+id = ""   # ← completar con el ID real tras ejecutar: wrangler kv namespace create TOKEN_CACHE
+
+[vars]
+IOL_BASE_URL = "https://api.invertironline.com"
+# ALLOWED_ORIGIN NO va aquí — se configura como secret para que no quede en el repo

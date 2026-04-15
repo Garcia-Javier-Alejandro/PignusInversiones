@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <!--
+    viewport: width=device-width asegura que en mobile se use el ancho real
+    del dispositivo en lugar de simular una pantalla de escritorio.
+  -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pignus — Portafolio</title>
+
+  <!-- Tailwind CSS via CDN — estilos mobile-first sin build step -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Alpine.js via CDN — estado reactivo sin framework pesado -->
+  <!-- El defer es importante: Alpine necesita el DOM listo antes de inicializarse -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <!-- Chart.js via CDN — gráficos de torta -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Nuestra lógica (debe cargarse ANTES de Alpine para que las funciones existan) -->
+  <script src="app.js"></script>
+
+  <style>
+    /* Forzar fondo oscuro en toda la página, sin flash de color blanco al cargar */
+    body { background-color: #0f172a; }
+
+    /* Spinner de carga — animación CSS pura, sin dependencias extra */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 2.5rem; height: 2.5rem;
+      border: 3px solid #334155;
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+  </style>
+
+  <script>
+    /**
+     * Configuración de Tailwind: activamos el modo "class" para dark mode
+     * y extendemos la paleta con los colores de nuestra UI.
+     * Esto debe estar en el <head> DESPUÉS de cargar tailwind.
+     */
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            surface: "#1e293b",   // slate-800 — fondo de cards
+          }
+        }
+      }
+    };
+  </script>
+</head>
+
+<!--
+  x-data: define el estado global del componente Alpine.js.
+  Todo lo que esté dentro de este <body> puede acceder a estas variables
+  con x-bind, x-show, x-text, etc.
+
+  x-init: se ejecuta automáticamente cuando Alpine inicializa el componente.
+  Llamamos a loadDashboard() para cargar los datos al abrir la página.
+-->
+<body
+  class="min-h-screen bg-slate-900 text-slate-100 font-sans"
+  x-data="{
+    moneda: 'ARS',
+    mep: null,
+    portfolio: null,
+    account: null,
+    loading: true,
+    error: null,
+    updatedAt: null,
+    init() { loadDashboard(this); }
+  }"
+>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════
+       OVERLAY DE CARGA
+       Cubre toda la pantalla mientras se esperan los datos de la API.
+       Alpine lo muestra/oculta con x-show="loading".
+       ═══════════════════════════════════════════════════════════════════════════ -->
+  <div
+    x-show="loading"
+    class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-900/95"
+    x-transition:leave="transition ease-in duration-200"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+  >
+    <div class="spinner mb-4"></div>
+    <p class="text-slate-400 text-sm">Cargando portafolio...</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════
+       BANNER DE ERROR
+       Aparece si el Worker o dolarapi.com fallan. Muestra el mensaje de error.
+       ═══════════════════════════════════════════════════════════════════════════ -->
+  <div
+    x-show="error && !loading"
+    class="fixed top-0 left-0 right-0 z-40 bg-red-600 text-white px-4 py-3 text-sm flex items-center justify-between"
+  >
+    <span>
+      <strong>Error:</strong>
+      <span x-text="error"></span>
+    </span>
+    <button @click="error = null" class="ml-4 text-white/80 hover:text-white font-bold">✕</button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════
+       HEADER — sticky en top
+       ═══════════════════════════════════════════════════════════════════════════ -->
+  <header class="sticky top-0 z-30 bg-slate-900 border-b border-slate-700/50 shadow-lg">
+    <div class="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+
+      <!-- Nombre y timestamp -->
+      <div>
+        <h1 class="text-lg font-bold text-white tracking-tight">Pignus</h1>
+        <p class="text-xs text-slate-400" x-show="updatedAt">
+          Actualizado: <span x-text="updatedAt"></span>
+        </p>
+      </div>
+
+      <!-- Controles: toggle ARS/MEP + botón refresh -->
+      <div class="flex items-center gap-2">
+
+        <!--
+          Toggle ARS / MEP
+          Alterna la variable `moneda` en el estado Alpine.
+          Cuando moneda === "MEP" y hay cotización, todos los valores
+          se muestran divididos por el MEP.
+        -->
+        <button
+          @click="moneda = moneda === 'ARS' ? 'MEP' : 'ARS'"
+          class="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
+          :class="moneda === 'MEP'
+            ? 'bg-emerald-600 text-white'
+            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'"
+          :title="moneda === 'MEP' ? 'Mostrando en USD MEP — click para ARS' : 'Click para ver en USD MEP'"
+        >
+          <!-- Ícono de moneda -->
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+          </svg>
+          <span x-text="moneda"></span>
+          <span x-show="moneda === 'MEP' && mep" class="opacity-70" x-text="'$' + (mep ? Math.round(mep).toLocaleString('es-AR') : '')"></span>
+        </button>
+
+        <!-- Botón refresh: recarga todos los datos -->
+        <button
+          @click="loadDashboard($data)"
+          :disabled="loading"
+          class="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors disabled:opacity-40"
+          title="Actualizar datos"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" :class="loading ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════
+       CONTENIDO PRINCIPAL
+       ═══════════════════════════════════════════════════════════════════════════ -->
+  <main class="max-w-2xl mx-auto px-4 py-5 space-y-5" x-show="!loading || portfolio">
+
+    <!-- ─── SECCIÓN 1: Cards resumen ────────────────────────────────────────── -->
+    <!--
+      Tres cards en grilla: Total cartera / Disponible / Rendimiento.
+      x-show="portfolio && account" evita mostrar cards vacías mientras carga.
+    -->
+    <section x-show="portfolio && account" class="grid grid-cols-3 gap-3">
+
+      <!-- Card: Total cartera -->
+      <div class="bg-slate-800 rounded-xl p-3 border border-slate-700/50">
+        <p class="text-xs text-slate-400 mb-1">Total cartera</p>
+        <p
+          class="text-base font-bold text-white leading-tight"
+          x-text="formatValor(calcTotalCartera(portfolio, account), moneda, mep)"
+        ></p>
+      </div>
+
+      <!-- Card: Disponible (efectivo en cuenta) -->
+      <div class="bg-slate-800 rounded-xl p-3 border border-slate-700/50">
+        <p class="text-xs text-slate-400 mb-1">Disponible</p>
+        <p
+          class="text-base font-bold text-white leading-tight"
+          x-text="formatValor(getDisponible(account), moneda, mep)"
+        ></p>
+      </div>
+
+      <!-- Card: Rendimiento total -->
+      <div class="bg-slate-800 rounded-xl p-3 border border-slate-700/50">
+        <p class="text-xs text-slate-400 mb-1">Rendimiento</p>
+        <p
+          class="text-base font-bold leading-tight"
+          :class="calcTotalReturn(portfolio?.activos) >= 0 ? 'text-emerald-400' : 'text-red-400'"
+          x-text="formatPct(calcTotalReturn(portfolio?.activos))"
+        ></p>
+      </div>
+    </section>
+
+    <!-- ─── SECCIÓN 2: Gráficos de torta ────────────────────────────────────── -->
+    <!--
+      Dos tortas: una por tipo de activo (CEDEAR/Renta Fija/FCI/Acciones)
+      y otra por sector económico.
+      En mobile se muestran una debajo de la otra; en pantallas sm: lado a lado.
+      La altura fija (h-52) evita que Chart.js redibuje infinitamente.
+    -->
+    <section x-show="portfolio" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+      <!-- Torta 1: Por tipo -->
+      <div class="bg-slate-800 rounded-xl p-4 border border-slate-700/50">
+        <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Tipo de activo</h2>
+        <div class="h-52">
+          <canvas id="chartTipo"></canvas>
+        </div>
+      </div>
+
+      <!-- Torta 2: Por sector -->
+      <div class="bg-slate-800 rounded-xl p-4 border border-slate-700/50">
+        <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Por sector</h2>
+        <div class="h-52">
+          <canvas id="chartSector"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── SECCIÓN 3: Tabla de posiciones ──────────────────────────────────── -->
+    <!--
+      Lista de todas las posiciones ordenadas por valor (mayor a menor).
+      Columnas: Activo / Valorizado / Rendimiento %
+      En mobile se muestra compacta; el símbolo va en negrita.
+    -->
+    <section x-show="portfolio">
+      <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Posiciones</h2>
+
+      <div class="bg-slate-800 rounded-xl border border-slate-700/50 overflow-hidden">
+
+        <!-- Header de la tabla -->
+        <div class="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-2.5 border-b border-slate-700/50 text-xs text-slate-500 font-medium">
+          <span>Activo</span>
+          <span class="text-right">Valorizado</span>
+          <span class="text-right w-16">Rend.</span>
+        </div>
+
+        <!-- Filas: una por cada posición, ordenadas por valorizado desc -->
+        <template
+          x-for="activo in (portfolio?.activos || []).slice().sort((a,b) => (b.valorizado||0) - (a.valorizado||0))"
+          :key="activo.titulo?.simbolo || activo.simbolo"
+        >
+          <div class="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-3 border-b border-slate-700/30 last:border-0 hover:bg-slate-700/30 transition-colors">
+
+            <!-- Columna 1: Símbolo + descripción + badge de tipo -->
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span
+                  class="font-bold text-white text-sm"
+                  x-text="activo.titulo?.simbolo || activo.simbolo || '?'"
+                ></span>
+                <!--
+                  Badge de tipo: muestra si es CEDEAR, FCI, etc.
+                  Colores distintos según tipo para identificación rápida.
+                -->
+                <span
+                  class="text-xs px-1.5 py-0.5 rounded font-medium"
+                  :class="{
+                    'bg-blue-900/60 text-blue-300': activo.tipo === 'CEDEAR',
+                    'bg-amber-900/60 text-amber-300': activo.tipo === 'Renta Fija',
+                    'bg-emerald-900/60 text-emerald-300': activo.tipo === 'FCI',
+                    'bg-violet-900/60 text-violet-300': activo.tipo === 'Acciones',
+                    'bg-slate-700 text-slate-400': !['CEDEAR','Renta Fija','FCI','Acciones'].includes(activo.tipo),
+                  }"
+                  x-text="activo.tipo || 'Otro'"
+                ></span>
+              </div>
+              <!-- Descripción truncada para que no rompa el layout en mobile -->
+              <p
+                class="text-xs text-slate-500 truncate mt-0.5"
+                x-text="activo.titulo?.descripcion || ''"
+              ></p>
+            </div>
+
+            <!-- Columna 2: Valor valorizado en moneda seleccionada -->
+            <div class="text-right self-center">
+              <span
+                class="text-sm font-semibold text-white tabular-nums"
+                x-text="formatValor(activo.valorizado || 0, moneda, mep)"
+              ></span>
+            </div>
+
+            <!-- Columna 3: Rendimiento % con color verde/rojo -->
+            <div class="text-right self-center w-16">
+              <span
+                class="text-sm font-semibold tabular-nums"
+                :class="(activo.gananciaPorcentaje || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'"
+                x-text="formatPct(activo.gananciaPorcentaje)"
+              ></span>
+            </div>
+          </div>
+        </template>
+
+        <!-- Estado vacío: si no hay posiciones (raro, pero puede pasar) -->
+        <div x-show="!portfolio?.activos?.length" class="px-4 py-8 text-center text-slate-500 text-sm">
+          Sin posiciones disponibles.
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════
+       PIE DE PÁGINA
+       ═══════════════════════════════════════════════════════════════════════════ -->
+  <footer class="max-w-2xl mx-auto px-4 py-6 text-center text-xs text-slate-600">
+    <p>Datos: IOL (InvertirOnLine) · MEP: dolarapi.com</p>
+    <p class="mt-1">Pignus · uso interno</p>
+  </footer>
+
+</body>
+</html>
