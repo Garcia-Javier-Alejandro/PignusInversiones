@@ -18,7 +18,7 @@
 // ─── URL del Worker ────────────────────────────────────────────────────────────
 // Reemplazar con la URL real del Worker después del primer deploy.
 // Ejemplo: "https://pignus-api.tuusuario.workers.dev"
-const WORKER_URL = "https://pignus-api.REEMPLAZAR.workers.dev";
+const WORKER_URL = "https://pignus-api.garcia-javier-alejandro.workers.dev";
 
 // ─── Mapa de sectores por símbolo ─────────────────────────────────────────────
 // Cada posición del portafolio se clasifica según este mapa para el gráfico

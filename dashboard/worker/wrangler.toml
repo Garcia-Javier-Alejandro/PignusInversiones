@@ -23,7 +23,7 @@ compatibility_date = "2024-09-23"
 #   2. Copiar el "id" que devuelve y pegarlo abajo en lugar de ""
 [[kv_namespaces]]
 binding = "TOKEN_CACHE"
-id = ""   # ← completar con el ID real tras ejecutar: wrangler kv namespace create TOKEN_CACHE
+id = "8c1461c1de29450ba42172257fcfdeda"
 
 [vars]
 IOL_BASE_URL = "https://api.invertironline.com"
