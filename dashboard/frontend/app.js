@@ -61,8 +61,6 @@ async function loadDashboard(alpineState) {
       fetchMEP(),
     ]);
 
-    console.log("[DEBUG] account raw:", JSON.stringify(account, null, 2));
-
     if (isValidPortfolio(portfolio)) {
       alpineState.portfolio  = portfolio;
       alpineState.account    = account;
@@ -185,20 +183,17 @@ function calcTotalReturn(activos) {
 }
 
 function calcTotalCartera(portfolio, account) {
-  return getActivosConCash(portfolio, account)
-    .reduce((s, a) => s + (a.valorizado || 0), 0);
+  // IOL ya calcula el total (títulos valorizados + disponible) en cuenta.total.
+  const cuenta = account?.cuentas?.find(c => c.moneda === "peso_Argentino") || account?.cuentas?.[0];
+  return cuenta?.total || 0;
 }
 
 function getDisponible(account) {
   if (!account?.cuentas) return 0;
-  for (const cuenta of account.cuentas) {
-    for (const saldo of (cuenta.saldos || [])) {
-      // Toleramos distintas capitalizaciones del campo
-      const desc = (saldo.descripcion || saldo.Descripcion || "").toLowerCase();
-      if (desc.includes("disponible")) return saldo.monto || saldo.Monto || 0;
-    }
-  }
-  return 0;
+  // IOL devuelve el disponible en pesos directamente en cuenta.disponible.
+  // La subcuenta de pesos se identifica por moneda === "peso_Argentino".
+  const cuenta = account.cuentas.find(c => c.moneda === "peso_Argentino") || account.cuentas[0];
+  return cuenta?.disponible || 0;
 }
 
 // ─── Formato de números ───────────────────────────────────────────────────────
