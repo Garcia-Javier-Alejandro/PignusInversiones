@@ -63,6 +63,7 @@ async function loadDashboard(alpineState) {
     ]);
 
     if (isValidPortfolio(portfolio)) {
+      console.log("[DEBUG] tipos IOL:", [...new Set((portfolio.activos||[]).map(a => a.tipo))]);
       alpineState.portfolio  = portfolio;
       alpineState.account    = account;
       alpineState.mep        = mep;
@@ -383,8 +384,8 @@ function renderHistoryChart(data, moneda) {
         {
           label: "Pignus",
           data: computed.pignusData,
-          borderColor: "#3b82f6",
-          backgroundColor: "#3b82f610",
+          borderColor: "#10b981",
+          backgroundColor: "#10b98110",
           tension: 0.3,
           pointRadius: 3,
           fill: false,
@@ -401,8 +402,8 @@ function renderHistoryChart(data, moneda) {
         {
           label: "Mercado Pago",
           data: computed.mpData,
-          borderColor: "#10b981",
-          backgroundColor: "#10b98110",
+          borderColor: "#3b82f6",
+          backgroundColor: "#3b82f610",
           tension: 0.3,
           pointRadius: 3,
           fill: false,
