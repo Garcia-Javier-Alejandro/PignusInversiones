@@ -236,6 +236,28 @@ async function saveSnapshot(totalARS, mep) {
   }
 }
 
+/** Registra un depósito o retiro y recarga el historial. */
+async function saveDeposit(alpineState) {
+  const date   = alpineState.depositDate;
+  const amount = parseFloat(alpineState.depositAmount);
+  const note   = alpineState.depositNote || "";
+  if (!date || isNaN(amount) || amount === 0) return;
+  try {
+    await fetch(`${WORKER_URL}/api/deposit`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ date, amount, note }),
+    });
+    alpineState.depositDate   = "";
+    alpineState.depositAmount = "";
+    alpineState.depositNote   = "";
+    alpineState.showDepositForm = false;
+    await loadHistory(alpineState);
+  } catch (err) {
+    console.warn("Error guardando depósito:", err.message);
+  }
+}
+
 /** Guarda una tasa diaria de MP y recarga el gráfico. */
 async function saveMPRate(alpineState) {
   const dailyPct = parseFloat(alpineState.mpRateInput);
@@ -265,10 +287,19 @@ async function saveMPRate(alpineState) {
  *
  * @returns { labels, pignusData, spyData, mpData } o null si hay < 2 puntos.
  */
-function computeHistoryChartData(snapshots, spyPrices, moneda) {
+/**
+ * Calcula las tres curvas del gráfico histórico.
+ *
+ * Benchmarks con depósitos:
+ *   Cada vez que se registra un depósito, los benchmarks también "compran"
+ *   SPY/MP con ese monto al precio de ese día. Así la comparación es justa:
+ *   "¿qué hubiera pasado si pusiera cada peso aportado en SPY o MP?"
+ */
+function computeHistoryChartData(snapshots, spyPrices, deposits, moneda) {
   if (!snapshots || snapshots.length < 1) return null;
 
-  const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
+  const sorted          = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
+  const depositsSorted  = [...(deposits || [])].sort((a, b) => a.date.localeCompare(b.date));
 
   const spyByDate = {};
   for (const p of (spyPrices || [])) spyByDate[p.date] = p.price;
@@ -276,6 +307,7 @@ function computeHistoryChartData(snapshots, spyPrices, moneda) {
   let spyUnits  = 0;
   let mpCuotas  = 0;
   let lastMpVcp = null;
+  let lastDate  = null;
 
   const labels     = [];
   const pignusData = [];
@@ -285,24 +317,28 @@ function computeHistoryChartData(snapshots, spyPrices, moneda) {
   for (let i = 0; i < sorted.length; i++) {
     const snap      = sorted[i];
     const mepForDay = snap.mep || 1;
-    const mpVcp     = snap.mpVcp || lastMpVcp;
     if (snap.mpVcp) lastMpVcp = snap.mpVcp;
+    const mpVcp = snap.mpVcp || lastMpVcp;
 
-    if (i === 0) {
-      const initARS  = snap.totalARS;
-      const spyPrice = nearestSPYPrice(spyByDate, snap.date);
-      if (spyPrice) spyUnits = initARS / spyPrice;
-      if (mpVcp)    mpCuotas = initARS / mpVcp;
+    // Depósitos que ocurrieron entre el snapshot anterior y éste (inclusive)
+    const lo = lastDate || "0000-00-00";
+    const hi = snap.date;
+    const periodDeposits = depositsSorted.filter(d => d.date > lo && d.date <= hi);
+
+    for (const dep of periodDeposits) {
+      const depSpy = dep.spyPrice || nearestSPYPrice(spyByDate, dep.date);
+      if (depSpy)     spyUnits += dep.amount / depSpy;
+      if (dep.mpVcp)  mpCuotas += dep.amount / dep.mpVcp;
     }
 
-    const spyPrice = nearestSPYPrice(spyByDate, snap.date);
-    const spyARS   = spyPrice != null ? spyUnits * spyPrice : null;
-    const mpARS    = mpVcp && mpCuotas > 0 ? mpCuotas * mpVcp : null;
+    lastDate = snap.date;
 
-    const toDisplay = v => {
-      if (v == null) return null;
-      return moneda === "MEP" && mepForDay > 1 ? v / mepForDay : v;
-    };
+    const spyPrice = nearestSPYPrice(spyByDate, snap.date);
+    const spyARS   = spyPrice && spyUnits > 0 ? spyUnits * spyPrice : null;
+    const mpARS    = mpVcp    && mpCuotas > 0 ? mpCuotas * mpVcp    : null;
+
+    const toDisplay = v => (v == null) ? null
+      : (moneda === "MEP" && mepForDay > 1 ? v / mepForDay : v);
 
     labels.push(formatDateLabel(snap.date));
     pignusData.push(toDisplay(snap.totalARS));
@@ -331,7 +367,7 @@ function renderHistoryChart(data, moneda) {
   const canvas = document.getElementById("chartHistory");
   if (!canvas) return;
 
-  const computed = computeHistoryChartData(data.snapshots, data.spyPrices, moneda);
+  const computed = computeHistoryChartData(data.snapshots, data.spyPrices, data.deposits, moneda);
 
   if (!computed || computed.labels.length < 2) return;
 
@@ -505,4 +541,5 @@ window.formatUSD         = formatUSD;
 window.formatPct         = formatPct;
 window.renderChart       = renderChart;
 window.renderHistoryChart = renderHistoryChart;
-window.saveMPRate        = saveMPRate;
+window.saveMPRate         = saveMPRate;
+window.saveDeposit        = saveDeposit;

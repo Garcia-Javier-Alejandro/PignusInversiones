@@ -140,6 +140,30 @@ async function handleHistory(request, env) {
     getSPYHistory(token, env),
     kvGet(env, "deposits", []),
   ]);
+
+  // Backfill mpVcp y spyPrice en depósitos que no los tengan aún
+  const spyByDate = {};
+  for (const p of spyPrices) spyByDate[p.date] = p.price;
+
+  let depositsChanged = false;
+  for (const dep of deposits) {
+    if (dep.mpVcp == null) {
+      dep.mpVcp = await fetchMercadoFondoVCP(dep.date);
+      if (dep.mpVcp) depositsChanged = true;
+    }
+    if (dep.spyPrice == null) {
+      // Buscar precio exacto o el más reciente anterior a la fecha
+      let best = null;
+      for (const p of spyPrices) {
+        if (p.date <= dep.date && (best == null || p.date > best.date)) best = p;
+      }
+      if (best) { dep.spyPrice = best.price; depositsChanged = true; }
+    }
+  }
+  if (depositsChanged) {
+    await env.TOKEN_CACHE.put("deposits", JSON.stringify(deposits));
+  }
+
   return jsonResponse({ snapshots, spyPrices, deposits }, { origin: env.ALLOWED_ORIGIN });
 }
 
