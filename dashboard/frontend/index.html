@@ -47,6 +47,7 @@
     sortCol: 'valorizado',
     sortDir: 'desc',
     historyData: null,
+    deposits: [],
     mpRateInput: '',
     toast: null,
     showToast(msg) {
@@ -180,8 +181,8 @@
       <div class="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
         <p class="text-xs text-gray-500 mb-1">Rendimiento</p>
         <p class="text-base font-bold leading-tight"
-          :class="calcTotalReturn(getActivosConCash(portfolio, account)) >= 0 ? 'text-emerald-600' : 'text-red-500'"
-          x-text="formatPct(calcTotalReturn(getActivosConCash(portfolio, account)))"></p>
+          :class="calcTotalReturn(getActivosConCash(portfolio, account), calcTotalCartera(portfolio, account), deposits) >= 0 ? 'text-emerald-600' : 'text-red-500'"
+          x-text="formatPct(calcTotalReturn(getActivosConCash(portfolio, account), calcTotalCartera(portfolio, account), deposits))"></p>
       </div>
 
       <!-- Rendimiento 30 días (requiere historial) -->

@@ -63,7 +63,6 @@ async function loadDashboard(alpineState) {
     ]);
 
     if (isValidPortfolio(portfolio)) {
-      console.log("[DEBUG] tipos en portfolio:", [...new Set((portfolio.activos||[]).map(a => a.tipo))]);
       alpineState.portfolio  = portfolio;
       alpineState.account    = account;
       alpineState.mep        = mep;
@@ -180,10 +179,18 @@ function sortActivos(activos, col, dir) {
 
 // ─── Cálculos financieros ─────────────────────────────────────────────────────
 
-function calcTotalReturn(activos) {
-  if (!activos || activos.length === 0) return 0;
-  // Excluir CASH: no tiene rendimiento
-  const posiciones = activos.filter(a => (a.titulo?.simbolo || a.simbolo) !== "CASH");
+/**
+ * Rendimiento real sobre capital aportado.
+ * Fórmula: (valor actual − Σ depósitos) / Σ depósitos × 100
+ * Si no hay depósitos registrados, cae al cálculo por PPC (menos preciso).
+ */
+function calcTotalReturn(activos, totalCartera, deposits) {
+  const totalAportado = (deposits || []).reduce((s, d) => s + (d.amount || 0), 0);
+  if (totalAportado > 0 && totalCartera > 0) {
+    return ((totalCartera - totalAportado) / totalAportado) * 100;
+  }
+  // Fallback: ganancia acumulada por PPC (excluye CASH)
+  const posiciones = (activos || []).filter(a => (a.titulo?.simbolo || a.simbolo) !== "CASH");
   const gain = posiciones.reduce((s, a) => s + (a.gananciaDinero || 0), 0);
   const cost = posiciones.reduce((s, a) => s + ((a.ppc || 0) * (a.cantidad || 0)), 0);
   return cost > 0 ? (gain / cost) * 100 : 0;
@@ -209,6 +216,7 @@ async function loadHistory(alpineState) {
   try {
     const data = await fetchJSON(`${WORKER_URL}/api/history`);
     alpineState.historyData = data;
+    alpineState.deposits    = data.deposits || [];
     renderHistoryChart(data, alpineState.moneda);
   } catch (err) {
     console.warn("No se pudo cargar el historial:", err.message);

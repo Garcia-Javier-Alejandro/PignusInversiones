@@ -69,6 +69,12 @@ export default {
       if (url.pathname === "/api/mp-rate" && request.method === "POST") {
         return await handleMPRate(request, env);
       }
+      if (url.pathname === "/api/deposit" && request.method === "POST") {
+        return await handleDeposit(request, env);
+      }
+      if (url.pathname === "/api/deposits") {
+        return await handleGetDeposits(request, env);
+      }
       return new Response("Not found", { status: 404 });
     } catch (err) {
       // Si algo falla (IOL caído, token inválido, etc.), devolvemos el error
@@ -130,8 +136,11 @@ async function handleHistory(request, env) {
     await env.TOKEN_CACHE.put("portfolio_history", JSON.stringify(snapshots));
   }
 
-  const spyPrices = await getSPYHistory(token, env);
-  return jsonResponse({ snapshots, spyPrices }, { origin: env.ALLOWED_ORIGIN });
+  const [spyPrices, deposits] = await Promise.all([
+    getSPYHistory(token, env),
+    kvGet(env, "deposits", []),
+  ]);
+  return jsonResponse({ snapshots, spyPrices, deposits }, { origin: env.ALLOWED_ORIGIN });
 }
 
 /**
@@ -212,6 +221,31 @@ async function getSPYHistory(token, env) {
     console.warn("No se pudo obtener historial SPY:", err.message);
     return cached?.prices || [];
   }
+}
+
+/**
+ * GET /api/deposits — devuelve la lista de depósitos registrados.
+ * POST /api/deposit — Body: { date: "YYYY-MM-DD", amount: number, note?: string }
+ * Los depósitos se usan para calcular el rendimiento real sobre capital aportado.
+ */
+async function handleGetDeposits(request, env) {
+  const deposits = await kvGet(env, "deposits", []);
+  return jsonResponse(deposits, { origin: env.ALLOWED_ORIGIN });
+}
+
+async function handleDeposit(request, env) {
+  const { date, amount, note } = await request.json();
+  if (!date || !amount || amount <= 0) {
+    return jsonResponse({ error: "date y amount requeridos" }, { status: 400, origin: env.ALLOWED_ORIGIN });
+  }
+  const deposits = await kvGet(env, "deposits", []);
+  const idx = deposits.findIndex(d => d.date === date);
+  const entry = { date, amount, note: note || "" };
+  if (idx >= 0) deposits[idx] = entry;
+  else deposits.push(entry);
+  deposits.sort((a, b) => a.date.localeCompare(b.date));
+  await env.TOKEN_CACHE.put("deposits", JSON.stringify(deposits));
+  return jsonResponse({ ok: true }, { origin: env.ALLOWED_ORIGIN });
 }
 
 /**
