@@ -244,30 +244,29 @@ async function saveMPRate(alpineState) {
 }
 
 /**
- * Calcula las tres curvas a partir de los datos del Worker.
+ * Calcula las tres curvas a partir de los snapshots del Worker.
  *
  * Algoritmo de benchmarks:
- *   - Día 0: se "compra" SPY / MP con el valor total de la cartera en ese momento.
- *   - SPY: unidades fijas × precio histórico CEDEAR en ARS.
- *   - MP:  valor compuesto diariamente por la tasa configurada.
- *   - Si hay inyecciones futuras (no implementado aún), ambos benchmarks
- *     recibirían el delta y comprarían al precio de ese día.
+ *   - Día 0: se "compra" SPY / MP con el valor total de la cartera.
+ *   - SPY: unidades fijas × precio histórico CEDEAR (ARS).
+ *   - MP:  cuotas fijas × VCP de "Mercado Fondo - Clase A" (dato real de CAFCI).
+ *
+ * Si un snapshot no tiene VCP (feriado, dato faltante), la curva MP
+ * usa el último VCP conocido como aproximación.
  *
  * @returns { labels, pignusData, spyData, mpData } o null si hay < 2 puntos.
  */
-function computeHistoryChartData(snapshots, spyPrices, mpRates, moneda) {
+function computeHistoryChartData(snapshots, spyPrices, moneda) {
   if (!snapshots || snapshots.length < 1) return null;
 
   const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
 
-  // Lookups por fecha
   const spyByDate = {};
   for (const p of (spyPrices || [])) spyByDate[p.date] = p.price;
 
-  const mpSorted = [...(mpRates || [])].sort((a, b) => a.date.localeCompare(b.date));
-
-  let spyUnits = 0;
-  let mpValue  = 0;
+  let spyUnits  = 0;
+  let mpCuotas  = 0;
+  let lastMpVcp = null;
 
   const labels     = [];
   const pignusData = [];
@@ -275,25 +274,22 @@ function computeHistoryChartData(snapshots, spyPrices, mpRates, moneda) {
   const mpData     = [];
 
   for (let i = 0; i < sorted.length; i++) {
-    const snap  = sorted[i];
+    const snap      = sorted[i];
     const mepForDay = snap.mep || 1;
+    const mpVcp     = snap.mpVcp || lastMpVcp;
+    if (snap.mpVcp) lastMpVcp = snap.mpVcp;
 
-    // Inicializar benchmarks con el valor del primer día
     if (i === 0) {
       const initARS  = snap.totalARS;
       const spyPrice = nearestSPYPrice(spyByDate, snap.date);
       if (spyPrice) spyUnits = initARS / spyPrice;
-      mpValue = initARS;
-    } else {
-      // Componer MP: usar tasa vigente a esta fecha
-      const rate = mpRateForDate(mpSorted, snap.date);
-      mpValue = mpValue * (1 + rate / 100);
+      if (mpVcp)    mpCuotas = initARS / mpVcp;
     }
 
     const spyPrice = nearestSPYPrice(spyByDate, snap.date);
     const spyARS   = spyPrice != null ? spyUnits * spyPrice : null;
+    const mpARS    = mpVcp && mpCuotas > 0 ? mpCuotas * mpVcp : null;
 
-    // Convertir según moneda seleccionada
     const toDisplay = v => {
       if (v == null) return null;
       return moneda === "MEP" && mepForDay > 1 ? v / mepForDay : v;
@@ -302,7 +298,7 @@ function computeHistoryChartData(snapshots, spyPrices, mpRates, moneda) {
     labels.push(formatDateLabel(snap.date));
     pignusData.push(toDisplay(snap.totalARS));
     spyData.push(toDisplay(spyARS));
-    mpData.push(toDisplay(mpValue));
+    mpData.push(toDisplay(mpARS));
   }
 
   return { labels, pignusData, spyData, mpData };
@@ -317,16 +313,6 @@ function nearestSPYPrice(spyByDate, targetDate) {
   return best;
 }
 
-/** Devuelve la tasa diaria MP más reciente en o antes de `date`. Default: 0.089% (~33% TNA). */
-function mpRateForDate(mpSorted, date) {
-  let rate = 0.089;
-  for (const r of mpSorted) {
-    if (r.date <= date) rate = r.dailyPct;
-    else break;
-  }
-  return rate;
-}
-
 function formatDateLabel(dateStr) {
   const d = new Date(dateStr + "T12:00:00");
   return d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
@@ -336,9 +322,7 @@ function renderHistoryChart(data, moneda) {
   const canvas = document.getElementById("chartHistory");
   if (!canvas) return;
 
-  const computed = computeHistoryChartData(
-    data.snapshots, data.spyPrices, data.mpRates, moneda
-  );
+  const computed = computeHistoryChartData(data.snapshots, data.spyPrices, moneda);
 
   if (!computed || computed.labels.length < 2) return;
 

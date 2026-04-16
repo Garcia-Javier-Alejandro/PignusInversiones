@@ -110,16 +110,28 @@ async function handleAccount(request, env) {
 
 /**
  * GET /api/history
- * Devuelve snapshots de la cartera, precios históricos de SPY (CEDEAR) y tasas MP.
+ * Devuelve snapshots de la cartera y precios históricos de SPY.
+ * Cada snapshot ya incluye mpVcp (Valor Cuota Patrimonial de Mercado Fondo - Clase A).
+ * Si algún snapshot no tiene VCP (guardado antes de esta feature), lo backfilla y persiste.
  */
 async function handleHistory(request, env) {
-  const token = await getValidToken(env);
-  const [snapshots, mpRates, spyPrices] = await Promise.all([
-    kvGet(env, "portfolio_history", []),
-    kvGet(env, "mp_rates", []),
-    getSPYHistory(token, env),
-  ]);
-  return jsonResponse({ snapshots, mpRates, spyPrices }, { origin: env.ALLOWED_ORIGIN });
+  const token     = await getValidToken(env);
+  let   snapshots = await kvGet(env, "portfolio_history", []);
+
+  // Backfill: snapshots guardados antes de que existiera mpVcp
+  let needsSave = false;
+  for (const snap of snapshots) {
+    if (snap.mpVcp == null) {
+      snap.mpVcp = await fetchMercadoFondoVCP(snap.date);
+      if (snap.mpVcp) needsSave = true;
+    }
+  }
+  if (needsSave) {
+    await env.TOKEN_CACHE.put("portfolio_history", JSON.stringify(snapshots));
+  }
+
+  const spyPrices = await getSPYHistory(token, env);
+  return jsonResponse({ snapshots, spyPrices }, { origin: env.ALLOWED_ORIGIN });
 }
 
 /**
@@ -140,7 +152,8 @@ async function handleSnapshot(request, env) {
     return jsonResponse({ ok: true, skipped: true }, { origin: env.ALLOWED_ORIGIN });
   }
 
-  history.push({ date: today, totalARS, mep: mep || null });
+  const mpVcp = await fetchMercadoFondoVCP(today);
+  history.push({ date: today, totalARS, mep: mep || null, mpVcp });
   await env.TOKEN_CACHE.put("portfolio_history", JSON.stringify(history));
   return jsonResponse({ ok: true }, { origin: env.ALLOWED_ORIGIN });
 }
@@ -198,6 +211,27 @@ async function getSPYHistory(token, env) {
   } catch (err) {
     console.warn("No se pudo obtener historial SPY:", err.message);
     return cached?.prices || [];
+  }
+}
+
+/**
+ * Obtiene el VCP de "Mercado Fondo - Clase A" para una fecha dada.
+ * Fuente: api.argentinadatos.com (sin auth, datos de CAFCI).
+ * Devuelve null si no hay datos para esa fecha (feriados, weekends).
+ */
+async function fetchMercadoFondoVCP(date) {
+  try {
+    const [year, month, day] = date.split("-");
+    const response = await fetch(
+      `https://api.argentinadatos.com/v1/finanzas/fci/mercadoDinero/${year}/${month}/${day}`
+    );
+    if (!response.ok) return null;
+    const data  = await response.json();
+    const entry = (Array.isArray(data) ? data : [])
+      .find(d => d.fondo === "Mercado Fondo - Clase A");
+    return entry?.vcp || null;
+  } catch {
+    return null;
   }
 }
 
