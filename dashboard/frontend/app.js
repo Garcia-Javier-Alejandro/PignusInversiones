@@ -43,15 +43,17 @@ const SECTORES = {
 // Este mapa los convierte a los nombres que queremos mostrar.
 // Si aparece un tipo nuevo en consola como "undefined" o desconocido, agregarlo acá.
 const TIPO_MAP = {
-  "CEDEARS":              "CEDEARs",
-  "ACCIONES":             "Acciones",
-  "BONOS":                "Bonos",
-  "TITULOS_PUBLICOS":     "Bonos",
+  "CEDEARS":                  "CEDEARs",
+  "ACCIONES":                 "Acciones",
+  "TitulosPublicos":          "Bonos",
+  "BONOS":                    "Bonos",
+  "TITULOS_PUBLICOS":         "Bonos",
   "OBLIGACIONES_NEGOCIABLES": "Bonos",
-  "LETRAS":               "Bonos",
-  "FCI":                  "FCI",
-  "FONDOS":               "FCI",
-  "Efectivo":             "Efectivo",  // sintético (CASH)
+  "LETRAS":                   "Bonos",
+  "FondoComundeInversion":    "FCI",
+  "FCI":                      "FCI",
+  "FONDOS":                   "FCI",
+  "Efectivo":                 "Efectivo",
 };
 
 function getTipo(activo) {
@@ -93,7 +95,6 @@ async function loadDashboard(alpineState) {
     ]);
 
     if (isValidPortfolio(portfolio)) {
-      console.log("[DEBUG] tipos IOL:", [...new Set((portfolio.activos||[]).map(a => a.titulo?.tipo))]);
       alpineState.portfolio  = portfolio;
       alpineState.account    = account;
       alpineState.mep        = mep;
