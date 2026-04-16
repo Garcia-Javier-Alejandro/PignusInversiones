@@ -267,38 +267,48 @@ function lerpColor(hex1, hex2, t) {
 }
 
 /**
- * Convierte un porcentaje de rendimiento a color.
- * Positivos: gris claro (#d1d5db) en +0.1% → verde intenso (#10b981) en +10%
- * Negativos: gris claro (#d1d5db) en -0.1% → rojo intenso (#ef4444) en -10%
- * Zona neutra (|pct| < 0.1%): gris claro
+ * Paleta estilo Finviz: charcoal oscuro en 0%, rojo saturado en −10%, verde brillante en +10%.
+ * Los extremos son intensos y el centro es casi negro — alta legibilidad at-a-glance.
  */
 function perfColor(pct) {
-  const GRAY = "#d1d5db";
+  const DARK = "#1e2020"; // charcoal casi negro para zona neutra
   if (pct >= 0.1) {
     const t = Math.min(1, pct / 10);
-    return lerpColor(GRAY, "#10b981", t);
+    return lerpColor(DARK, "#1aba64", t); // charcoal → verde brillante
   }
   if (pct <= -0.1) {
     const t = Math.min(1, Math.abs(pct) / 10);
-    return lerpColor(GRAY, "#ef4444", t);
+    return lerpColor(DARK, "#e03131", t); // charcoal → rojo saturado
   }
-  return GRAY;
+  return DARK;
 }
 
-/** Calcula el color de cada sector basándose en su rendimiento ponderado. */
-function buildSectorPerfColors(activos, sectorNames) {
-  const sd = {};
+/**
+ * Calcula el rendimiento ponderado (%) por grupo (sector o tipo).
+ * Devuelve un mapa { nombre → pct | null }.
+ */
+function buildPerfMap(activos, view) {
+  const data = {};
   for (const a of activos) {
     if ((a.titulo?.simbolo || a.simbolo) === "CASH") continue;
-    const s = getSector(a);
-    if (!sd[s]) sd[s] = { gain: 0, cost: 0 };
-    sd[s].gain += a.gananciaDinero || 0;
-    sd[s].cost += (a.ppc || 0) * (a.cantidad || 0);
+    const key = view === "sector" ? getSector(a) : getTipo(a);
+    if (!data[key]) data[key] = { gain: 0, cost: 0 };
+    data[key].gain += a.gananciaDinero || 0;
+    data[key].cost += (a.ppc || 0) * (a.cantidad || 0);
   }
+  const result = {};
+  for (const [name, d] of Object.entries(data)) {
+    result[name] = d.cost > 0 ? (d.gain / d.cost) * 100 : null;
+  }
+  return result;
+}
+
+/** Colores de performance para el treemap de sectores. */
+function buildSectorPerfColors(activos, sectorNames) {
+  const perfMap = buildPerfMap(activos, "sector");
   return sectorNames.map(name => {
-    const d = sd[name];
-    if (!d || d.cost <= 0) return "#9ca3af";
-    return perfColor((d.gain / d.cost) * 100);
+    const pct = perfMap[name];
+    return pct != null ? perfColor(pct) : "#1e2020";
   });
 }
 
@@ -691,7 +701,9 @@ function renderTreemap(activos, view) {
 
   const { sorted, colors } = buildGrupos(activos, view);
   const total    = sorted.reduce((s, [, v]) => s + v, 0);
-  // Para treemap por sector: codificar colores según rendimiento real
+  const perfMap  = buildPerfMap(activos, view);
+
+  // Colores: por sector → performance encoding; por tipo → paleta fija
   const finalColors = (view === "sector")
     ? buildSectorPerfColors(activos, sorted.map(([name]) => name))
     : colors;
@@ -705,28 +717,33 @@ function renderTreemap(activos, view) {
     data: {
       datasets: [{
         label: "Composición",
-        data: sorted.map(([label, value]) => ({ label, value })),
+        data: sorted.map(([label, value]) => ({ label, value, perf: perfMap[label] ?? null })),
         key: "value",
         labels: {
           display: true,
           formatter(ctx) {
-            const d   = ctx.raw._data;
+            const d       = ctx.raw._data;
             if (!d) return "";
-            const pct = total > 0 ? (d.value / total) * 100 : 0;
-            if (pct < 4) return "";
-            if (pct < 8) return pct.toFixed(1) + "%";
-            return [d.label, pct.toFixed(1) + "%"];
+            const areaPct = total > 0 ? (d.value / total) * 100 : 0;
+            if (areaPct < 4) return "";
+            // Mostrar rendimiento del sector/tipo, no su peso en cartera
+            const perf    = d.perf;
+            const perfStr = perf != null
+              ? (perf >= 0 ? "+" : "") + perf.toFixed(1) + "%"
+              : "";
+            if (areaPct < 8) return perfStr;
+            return [d.label, perfStr];
           },
-          color:     ["#fff", "#ffffffcc"],
+          color:     ["#fff", "#ffffffdd"],
           font:      [{ size: 11, weight: "bold" }, { size: 10 }],
-          hoverColor:["#fff", "#ffffffcc"],
+          hoverColor:["#fff", "#ffffffdd"],
           align: "center",
           position: "middle",
         },
         backgroundColor(ctx) {
-          return colorMap[ctx.raw._data?.label] || "#9ca3af";
+          return colorMap[ctx.raw._data?.label] || "#1e2020";
         },
-        borderColor: "#f9fafb",
+        borderColor: "#111",
         borderWidth: 2,
       }],
     },
@@ -740,10 +757,13 @@ function renderTreemap(activos, view) {
           callbacks: {
             title(items) { return items[0]?.raw._data?.label || ""; },
             label(ctx) {
-              const d   = ctx.raw._data;
+              const d = ctx.raw._data;
               if (!d) return "";
-              const pct = total > 0 ? (d.value / total * 100).toFixed(1) : "0";
-              return ` ${formatARS(d.value)} (${pct}%)`;
+              const composPct = total > 0 ? (d.value / total * 100).toFixed(1) : "0";
+              const perfStr   = d.perf != null
+                ? ` · Rend: ${d.perf >= 0 ? "+" : ""}${d.perf.toFixed(1)}%`
+                : "";
+              return ` ${formatARS(d.value)} (${composPct}% cartera)${perfStr}`;
             },
           },
         },
