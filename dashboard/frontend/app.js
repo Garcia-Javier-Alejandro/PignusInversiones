@@ -266,12 +266,23 @@ function lerpColor(hex1, hex2, t) {
   return `rgb(${Math.round(r1+(r2-r1)*t)},${Math.round(g1+(g2-g1)*t)},${Math.round(b1+(b2-b1)*t)})`;
 }
 
-/** Convierte un porcentaje de rendimiento a color rojo-amarillo-verde. maxPct = extremo de la escala. */
-function perfColor(pct, maxPct = 20) {
-  const t = Math.max(-1, Math.min(1, pct / maxPct));
-  return t >= 0
-    ? lerpColor("#f59e0b", "#10b981", t)    // amarillo → verde
-    : lerpColor("#ef4444", "#f59e0b", t+1); // rojo → amarillo
+/**
+ * Convierte un porcentaje de rendimiento a color.
+ * Positivos: gris claro (#d1d5db) en +0.1% → verde intenso (#10b981) en +10%
+ * Negativos: gris claro (#d1d5db) en -0.1% → rojo intenso (#ef4444) en -10%
+ * Zona neutra (|pct| < 0.1%): gris claro
+ */
+function perfColor(pct) {
+  const GRAY = "#d1d5db";
+  if (pct >= 0.1) {
+    const t = Math.min(1, pct / 10);
+    return lerpColor(GRAY, "#10b981", t);
+  }
+  if (pct <= -0.1) {
+    const t = Math.min(1, Math.abs(pct) / 10);
+    return lerpColor(GRAY, "#ef4444", t);
+  }
+  return GRAY;
 }
 
 /** Calcula el color de cada sector basándose en su rendimiento ponderado. */
@@ -378,11 +389,10 @@ function computeHistoryChartData(snapshots, spyPrices, deposits, moneda, periodo
   let lastMpVcp = null;
   let lastDate  = null;
 
-  const labels         = [];
-  const pignusBaseData = [];
-  const depositBarData = [];
-  const spyData        = [];
-  const mpData         = [];
+  const labels     = [];
+  const pignusData = [];
+  const spyData    = [];
+  const mpData     = [];
 
   for (const snap of allSorted) {
     const mepForDay = snap.mep || 1;
@@ -399,12 +409,7 @@ function computeHistoryChartData(snapshots, spyPrices, deposits, moneda, periodo
     }
     lastDate = snap.date;
 
-    // Solo agregar al output si está dentro del período seleccionado
     if (cutoff && snap.date < cutoff) continue;
-
-    const depositOnDay = depositsSorted
-      .filter(d => d.date === snap.date)
-      .reduce((s, d) => s + (d.amount || 0), 0);
 
     const spyPrice = nearestSPYPrice(spyByDate, snap.date);
     const spyARS   = spyPrice && spyUnits > 0 ? spyUnits * spyPrice : null;
@@ -414,13 +419,17 @@ function computeHistoryChartData(snapshots, spyPrices, deposits, moneda, periodo
       : (moneda === "MEP" && mepForDay > 1 ? v / mepForDay : v);
 
     labels.push(formatDateLabel(snap.date));
-    pignusBaseData.push(toDisplay(Math.max(0, (snap.totalARS || 0) - depositOnDay)));
-    depositBarData.push(toDisplay(depositOnDay > 0 ? depositOnDay : null));
+    pignusData.push(toDisplay(snap.totalARS));
     spyData.push(toDisplay(spyARS));
     mpData.push(toDisplay(mpARS));
   }
 
-  return labels.length >= 2 ? { labels, pignusBaseData, depositBarData, spyData, mpData } : null;
+  // Depósitos dentro del rango visible (para anotaciones en el gráfico)
+  const visibleDeposits = depositsSorted.filter(d =>
+    (!cutoff || d.date >= cutoff) && labels.includes(formatDateLabel(d.date))
+  );
+
+  return labels.length >= 2 ? { labels, pignusData, spyData, mpData, visibleDeposits } : null;
 }
 
 /** Fecha de corte para filtrar snapshots según el período seleccionado. */
@@ -456,31 +465,49 @@ function renderHistoryChart(data, moneda, periodo) {
 
   const fmtY = v => moneda === "MEP" ? formatUSD(v) : formatARS(v);
 
+  // Anotaciones: línea vertical punteada por cada depósito visible
+  const annotations = {};
+  for (const dep of (computed.visibleDeposits || [])) {
+    const label  = formatDateLabel(dep.date);
+    const monto  = dep.amount >= 0
+      ? `+$${(dep.amount / 1e6).toFixed(1)}M`
+      : `-$${(Math.abs(dep.amount) / 1e6).toFixed(1)}M`;
+    annotations[`dep_${dep.date}`] = {
+      type:        "line",
+      xMin:        label,
+      xMax:        label,
+      borderColor: "#60a5fa",
+      borderWidth: 1.5,
+      borderDash:  [4, 3],
+      label: {
+        display:         true,
+        content:         monto,
+        position:        "start",
+        yAdjust:         6,
+        backgroundColor: "rgba(96,165,250,0.12)",
+        color:           "#3b82f6",
+        font:            { size: 9, weight: "bold" },
+        padding:         { x: 4, y: 2 },
+        borderRadius:    3,
+      },
+    };
+  }
+
   chartHistory = new Chart(canvas, {
-    type: "bar",
+    type: "line",
     data: {
       labels: computed.labels,
       datasets: [
         {
-          type:            "bar",
           label:           "Pignus",
-          data:            computed.pignusBaseData,
-          backgroundColor: "#10b981bb",
-          stack:           "pignus",
-          order:           2,
-          borderRadius:    2,
+          data:            computed.pignusData,
+          borderColor:     "#10b981",
+          backgroundColor: "#10b98118",
+          tension:         0.3,
+          pointRadius:     3,
+          fill:            true,
         },
         {
-          type:            "bar",
-          label:           "Depósito",
-          data:            computed.depositBarData,
-          backgroundColor: "#60a5fa99",
-          stack:           "pignus",
-          order:           2,
-          borderRadius:    2,
-        },
-        {
-          type:            "line",
           label:           "S&P 500",
           data:            computed.spyData,
           borderColor:     "#f97316",
@@ -488,10 +515,8 @@ function renderHistoryChart(data, moneda, periodo) {
           tension:         0.3,
           pointRadius:     3,
           fill:            false,
-          order:           1,
         },
         {
-          type:            "line",
           label:           "Mercado Pago",
           data:            computed.mpData,
           borderColor:     "#3b82f6",
@@ -499,7 +524,6 @@ function renderHistoryChart(data, moneda, periodo) {
           tension:         0.3,
           pointRadius:     3,
           fill:            false,
-          order:           1,
         },
       ],
     },
@@ -510,9 +534,16 @@ function renderHistoryChart(data, moneda, periodo) {
       plugins: {
         legend: {
           position: "top",
-          labels: { color: "#374151", font: { size: 11 }, padding: 16, boxWidth: 12 },
+          labels: {
+            color: "#374151",
+            font: { size: 11 },
+            padding: 16,
+            usePointStyle: true,
+            pointStyle:    "line",
+          },
         },
-        datalabels: { display: false },
+        datalabels:  { display: false },
+        annotation:  { annotations },
         tooltip: {
           callbacks: {
             label(ctx) {
@@ -524,12 +555,10 @@ function renderHistoryChart(data, moneda, periodo) {
       },
       scales: {
         x: {
-          stacked: true,
           ticks: { color: "#9ca3af", font: { size: 10 }, maxTicksLimit: 8 },
           grid:  { color: "#f3f4f6" },
         },
         y: {
-          stacked: true,
           ticks: { color: "#9ca3af", font: { size: 10 }, callback: fmtY },
           grid:  { color: "#f3f4f6" },
         },
