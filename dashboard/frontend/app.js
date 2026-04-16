@@ -9,24 +9,33 @@ const WORKER_URL = "https://pignus-api.garcia-javier-alejandro.workers.dev";
 
 // ─── Mapa de sectores por símbolo ─────────────────────────────────────────────
 const SECTORES = {
-  ASML:    "Tecnología",
-  CASH:    "Efectivo",
-  COPX:    "Materiales",
-  GGAL:    "Financiero",
+  // Renta fija ajustable
+  TX26:    "Renta fija ajustable",
+  TZX26:   "Renta fija ajustable",
+  // Oro
   GLD:     "Oro",
+  // Liquidez
   IOLCAMA: "Liquidez",
+  CASH:    "Liquidez",
+  // Finanzas
+  GGAL:    "Finanzas",
+  NU:      "Finanzas",
+  // Hidrocarburos
+  VIST:    "Hidrocarburos",
+  XOM:     "Hidrocarburos",
+  XLE:     "Hidrocarburos",
+  SLB:     "Hidrocarburos",
+  // Tecnología
+  ASML:    "Tecnología",
   MELI:    "Tecnología",
   MSFT:    "Tecnología",
-  NU:      "Financiero",
-  SLB:     "Hidrocarburos",
-  SPY:     "Diversificado",
-  TX26:    "Renta fija CER",
-  TZX26:   "Renta fija CER",
-  URA:     "Energía nuclear",
-  VIST:    "Hidrocarburos",
-  XLE:     "Hidrocarburos",
+  // Materiales estratégicos
+  COPX:    "Materiales estratégicos",
+  URA:     "Materiales estratégicos",
+  // Mercado amplio EE.UU.
+  SPY:     "Mercado amplio EE.UU.",
+  // Salud
   XLV:     "Salud",
-  XOM:     "Hidrocarburos",
 };
 
 // ─── Paletas ───────────────────────────────────────────────────────────────────
