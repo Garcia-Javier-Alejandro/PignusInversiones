@@ -82,7 +82,7 @@ export default {
  */
 async function handlePortfolio(request, env) {
   const token = await getValidToken(env);
-  const data = await iolGet("/api/v2/portafolio/argentina", token);
+  const data = await iolGet("/api/v2/portafolio/argentina", token, env);
   return jsonResponse(data, { origin: env.ALLOWED_ORIGIN });
 }
 
@@ -93,7 +93,7 @@ async function handlePortfolio(request, env) {
  */
 async function handleAccount(request, env) {
   const token = await getValidToken(env);
-  const data = await iolGet("/api/v2/estadocuenta", token);
+  const data = await iolGet("/api/v2/estadocuenta", token, env);
   return jsonResponse(data, { origin: env.ALLOWED_ORIGIN });
 }
 
@@ -215,10 +215,19 @@ async function saveTokenToKV(env, tokens) {
  * @param {string} endpoint — path relativo, ej: "/api/v2/portafolio/argentina"
  * @param {string} token    — access_token válido
  */
-async function iolGet(endpoint, token) {
+async function iolGet(endpoint, token, env, retried = false) {
   const response = await fetch(`${IOL_BASE}${endpoint}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+
+  // Si IOL devuelve 401, el token cacheado quedó inválido (sesión cerrada, rotación, etc.).
+  // Limpiamos el KV y reintentamos una sola vez con credenciales frescas.
+  if (response.status === 401 && !retried) {
+    console.warn("Token rechazado por IOL (401), re-autenticando...");
+    await env.TOKEN_CACHE.delete("iol_token");
+    const freshToken = await authenticateFresh(env);
+    return iolGet(endpoint, freshToken, env, true);
+  }
 
   if (!response.ok) {
     const text = await response.text();
