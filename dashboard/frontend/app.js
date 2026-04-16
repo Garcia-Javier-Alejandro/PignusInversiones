@@ -143,8 +143,8 @@ async function fetchJSON(url) {
 
 async function fetchMEP() {
   try {
-    const data = await fetchJSON("https://dolarapi.com/v1/dolares/bolsa");
-    return ((data.compra || 0) + (data.venta || 0)) / 2;
+    const data = await fetchJSON(`${WORKER_URL}/api/mep`);
+    return data.mep || null;
   } catch (err) {
     console.warn("No se pudo obtener el dólar MEP:", err.message);
     return null;

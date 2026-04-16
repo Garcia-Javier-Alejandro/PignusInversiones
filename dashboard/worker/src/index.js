@@ -69,6 +69,9 @@ export default {
       if (url.pathname === "/api/positions") {
         return await handlePositions(request, env);
       }
+      if (url.pathname === "/api/mep") {
+        return await handleMEP(request, env);
+      }
       if (url.pathname === "/api/mp-rate" && request.method === "POST") {
         return await handleMPRate(request, env);
       }
@@ -274,6 +277,44 @@ async function handleSnapshot(request, env) {
 async function handlePositions(request, env) {
   const positions = await kvGet(env, "positions_history", []);
   return jsonResponse(positions, { origin: env.ALLOWED_ORIGIN });
+}
+
+/**
+ * GET /api/mep
+ * Calcula el dólar MEP implícito como precio_AL30_ARS / precio_AL30D_USD.
+ * AL30 y AL30D son el mismo bono soberano en distintas series de liquidación;
+ * el cociente de precios da el tipo de cambio de mercado sin depender de
+ * fuentes externas (solo IOL).
+ * Caché KV de 15 minutos para no saturar el endpoint de cotizaciones.
+ */
+async function handleMEP(request, env) {
+  const cached = await kvGet(env, "mep_cache", null);
+  if (cached && (Date.now() - cached.fetchedAt) < 15 * 60_000) {
+    return jsonResponse(cached, { origin: env.ALLOWED_ORIGIN });
+  }
+
+  const token = await getValidToken(env);
+  const [al30, al30d] = await Promise.all([
+    iolGet("/api/v2/cotizaciones/titulos/bCBA/AL30",  token, env),
+    iolGet("/api/v2/cotizaciones/titulos/bCBA/AL30D", token, env),
+  ]);
+
+  // IOL devuelve "ultimoPrecio" en el objeto cotización
+  const precioARS = al30.ultimoPrecio  ?? al30.precio;
+  const precioUSD = al30d.ultimoPrecio ?? al30d.precio;
+
+  if (!precioARS || !precioUSD || precioUSD === 0) {
+    return jsonResponse({ error: "No se pudo calcular MEP" }, { status: 502, origin: env.ALLOWED_ORIGIN });
+  }
+
+  const result = {
+    mep:       precioARS / precioUSD,
+    al30Ars:   precioARS,
+    al30dUsd:  precioUSD,
+    fetchedAt: Date.now(),
+  };
+  await env.TOKEN_CACHE.put("mep_cache", JSON.stringify(result));
+  return jsonResponse(result, { origin: env.ALLOWED_ORIGIN });
 }
 
 /**

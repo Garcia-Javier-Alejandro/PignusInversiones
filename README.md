@@ -147,6 +147,7 @@ api.invertironline.com   Yahoo Finance          api.argentinadatos.com
 | `positions_history` | array | Posiciones diarias `{ date, activos: [{s,t,q,ppc,v,g,gp}] }` — campos: s=símbolo, t=tipo, q=cantidad, ppc, v=valorizado, g=gananciaDinero, gp=gananciaPorcentaje |
 | `deposits` | array | Depósitos/retiros `{ date, amount, note, auto, mpVcp, spyPrice }` |
 | `spy_history_cache_yf` | objeto | `{ fetchedAt, prices: [{date, price}] }` — precios SPY.BA, TTL 24h |
+| `mep_cache` | objeto | `{ mep, al30Ars, al30dUsd, fetchedAt }` — MEP implícito AL30/AL30D, TTL 15 min |
 | `mp_rates` | array | Tasas diarias manuales MP `{ date, dailyPct }` (legado, no usado activamente) |
 
 #### Límites de almacenamiento KV (estimación)
@@ -170,6 +171,7 @@ Con ~20 posiciones por día y ~70 bytes/posición comprimida:
 | GET | `/api/history` | Snapshots + precios SPY + depósitos (con backfill e inferencia automática) |
 | POST | `/api/snapshot` | Guarda snapshot del día `{ totalARS, mep, totalGanancia, activos }` — escribe en `portfolio_history` y `positions_history` |
 | GET | `/api/positions` | Historial completo de posiciones por día |
+| GET | `/api/mep` | MEP implícito `{ mep, al30Ars, al30dUsd }` calculado desde precios IOL (caché 15 min) |
 | GET | `/api/deposits` | Lista de depósitos registrados |
 | POST | `/api/deposit` | Registra depósito manual `{ date, amount, note }` (legado) |
 | POST | `/api/mp-rate` | Registra tasa diaria MP manual (legado) |
@@ -222,7 +224,7 @@ El mapa `SECTORES` en `app.js` es hardcodeado. Para un activo nuevo: agregar `S�
 - [x] **Rendimiento 30d:** `calcReturn30d()` — base: snapshot más reciente ≥ 30 días atrás, ajustado por depósitos en el período. La card muestra la fecha base para que quede claro el período real.
 - [x] **Snapshot completo de posiciones:** `POST /api/snapshot` ahora acepta `activos` y los persiste compactos en `positions_history`. Accesibles via `GET /api/positions`.
 - [ ] **Gráfico histórico normalizado:** opción de ver las curvas indexadas a 100 en el punto inicial del período seleccionado, en lugar de valores absolutos en ARS/USD.
-- [ ] **MEP desde AL30/AL30D:** calcular el MEP implícito directamente desde precios IOL (`precio_AL30_ARS / precio_AL30D_USD`) en lugar de depender de dolarapi.com.
+- [x] **MEP desde AL30/AL30D:** `GET /api/mep` calcula `precio_AL30_ARS / precio_AL30D_USD` vía IOL. El frontend ya no depende de dolarapi.com.
 
 ### Dashboard — mediano plazo
 - [ ] **Reporte mensual generado automáticamente:** requiere snapshot completo de posiciones. El reporte incluiría: valor inicio/fin de mes, depósitos del período, rendimiento ajustado, performance por posición, atribución por sector, comparación vs benchmarks, efecto moneda.
