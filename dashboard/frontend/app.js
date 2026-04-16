@@ -72,7 +72,7 @@ async function loadDashboard(alpineState) {
     ]);
 
     if (isValidPortfolio(portfolio)) {
-      console.log("[DEBUG] tipos IOL:", [...new Set((portfolio.activos||[]).map(a => a.tipo))]);
+      console.log("[DEBUG] primer activo:", JSON.stringify(portfolio.activos?.[0], null, 2));
       alpineState.portfolio  = portfolio;
       alpineState.account    = account;
       alpineState.mep        = mep;
