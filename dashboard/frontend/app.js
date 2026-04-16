@@ -38,14 +38,35 @@ const SECTORES = {
   XLV:     "Salud",
 };
 
+// ─── Normalización de tipos IOL → display ─────────────────────────────────────
+// IOL devuelve el tipo en titulo.tipo con strings propios.
+// Este mapa los convierte a los nombres que queremos mostrar.
+// Si aparece un tipo nuevo en consola como "undefined" o desconocido, agregarlo acá.
+const TIPO_MAP = {
+  "CEDEARS":              "CEDEARs",
+  "ACCIONES":             "Acciones",
+  "BONOS":                "Bonos",
+  "TITULOS_PUBLICOS":     "Bonos",
+  "OBLIGACIONES_NEGOCIABLES": "Bonos",
+  "LETRAS":               "Bonos",
+  "FCI":                  "FCI",
+  "FONDOS":               "FCI",
+  "Efectivo":             "Efectivo",  // sintético (CASH)
+};
+
+function getTipo(activo) {
+  const raw = activo.titulo?.tipo || activo.tipo || "";
+  return TIPO_MAP[raw] || (raw ? raw : "Otros");
+}
+
 // ─── Paletas ───────────────────────────────────────────────────────────────────
 const COLORES_TIPO = {
-  "CEDEAR":    "#3b82f6",
-  "Renta Fija":"#f59e0b",
-  "FCI":       "#10b981",
-  "Acciones":  "#8b5cf6",
-  "Efectivo":  "#6b7280",
-  "Otros":     "#9ca3af",
+  "CEDEARs":  "#3b82f6",
+  "Acciones": "#8b5cf6",
+  "Bonos":    "#f59e0b",
+  "FCI":      "#10b981",
+  "Efectivo": "#6b7280",
+  "Otros":    "#9ca3af",
 };
 
 const PALETA_SECTORES = [
@@ -72,7 +93,7 @@ async function loadDashboard(alpineState) {
     ]);
 
     if (isValidPortfolio(portfolio)) {
-      console.log("[DEBUG] primer activo:", JSON.stringify(portfolio.activos?.[0], null, 2));
+      console.log("[DEBUG] tipos IOL:", [...new Set((portfolio.activos||[]).map(a => a.titulo?.tipo))]);
       alpineState.portfolio  = portfolio;
       alpineState.account    = account;
       alpineState.mep        = mep;
@@ -490,7 +511,7 @@ function renderChart(activos, view) {
 
   const grupos = {};
   for (const a of activos) {
-    const key = view === "tipo" ? (a.tipo || "Otros") : getSector(a);
+    const key = view === "tipo" ? getTipo(a) : getSector(a);
     grupos[key] = (grupos[key] || 0) + (a.valorizado || 0);
   }
 
@@ -538,6 +559,7 @@ function horaActual() {
 }
 
 // ─── Exposición global para Alpine.js ─────────────────────────────────────────
+window.getTipo           = getTipo;
 window.loadDashboard     = loadDashboard;
 window.calcTotalReturn   = calcTotalReturn;
 window.calcTotalCartera  = calcTotalCartera;
