@@ -45,7 +45,8 @@ const PALETA_SECTORES = [
   "#14b8a6","#fb923c",
 ];
 
-let chartPie = null;
+let chartPie     = null;
+let chartHistory = null;
 
 // ─── Función principal ────────────────────────────────────────────────────────
 
@@ -67,6 +68,11 @@ async function loadDashboard(alpineState) {
       alpineState.mep        = mep;
       alpineState.updatedAt  = horaActual();
       renderChart(getActivosConCash(portfolio, account), alpineState.chartView);
+
+      // Guardar snapshot diario y cargar historial (fire-and-forget en paralelo)
+      const totalARS = account?.cuentas?.find(c => c.moneda === "peso_Argentino")?.total || 0;
+      saveSnapshot(totalARS, mep);
+      loadHistory(alpineState);
     } else {
       alpineState.stale = true;
       console.warn("IOL devolvió datos vacíos, conservando datos anteriores.");
@@ -196,6 +202,217 @@ function getDisponible(account) {
   return cuenta?.disponible || 0;
 }
 
+// ─── Historial y benchmarks ───────────────────────────────────────────────────
+
+async function loadHistory(alpineState) {
+  try {
+    const data = await fetchJSON(`${WORKER_URL}/api/history`);
+    alpineState.historyData = data;
+    renderHistoryChart(data, alpineState.moneda);
+  } catch (err) {
+    console.warn("No se pudo cargar el historial:", err.message);
+  }
+}
+
+/** Guarda un snapshot del día en el Worker (fire-and-forget). */
+async function saveSnapshot(totalARS, mep) {
+  try {
+    await fetch(`${WORKER_URL}/api/snapshot`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ totalARS, mep }),
+    });
+  } catch (err) {
+    console.warn("No se pudo guardar snapshot:", err.message);
+  }
+}
+
+/** Guarda una tasa diaria de MP y recarga el gráfico. */
+async function saveMPRate(alpineState) {
+  const dailyPct = parseFloat(alpineState.mpRateInput);
+  if (isNaN(dailyPct) || dailyPct <= 0) return;
+  try {
+    await fetch(`${WORKER_URL}/api/mp-rate`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ dailyPct }),
+    });
+    await loadHistory(alpineState);
+  } catch (err) {
+    console.warn("Error guardando tasa MP:", err.message);
+  }
+}
+
+/**
+ * Calcula las tres curvas a partir de los datos del Worker.
+ *
+ * Algoritmo de benchmarks:
+ *   - Día 0: se "compra" SPY / MP con el valor total de la cartera en ese momento.
+ *   - SPY: unidades fijas × precio histórico CEDEAR en ARS.
+ *   - MP:  valor compuesto diariamente por la tasa configurada.
+ *   - Si hay inyecciones futuras (no implementado aún), ambos benchmarks
+ *     recibirían el delta y comprarían al precio de ese día.
+ *
+ * @returns { labels, pignusData, spyData, mpData } o null si hay < 2 puntos.
+ */
+function computeHistoryChartData(snapshots, spyPrices, mpRates, moneda) {
+  if (!snapshots || snapshots.length < 1) return null;
+
+  const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
+
+  // Lookups por fecha
+  const spyByDate = {};
+  for (const p of (spyPrices || [])) spyByDate[p.date] = p.price;
+
+  const mpSorted = [...(mpRates || [])].sort((a, b) => a.date.localeCompare(b.date));
+
+  let spyUnits = 0;
+  let mpValue  = 0;
+
+  const labels     = [];
+  const pignusData = [];
+  const spyData    = [];
+  const mpData     = [];
+
+  for (let i = 0; i < sorted.length; i++) {
+    const snap  = sorted[i];
+    const mepForDay = snap.mep || 1;
+
+    // Inicializar benchmarks con el valor del primer día
+    if (i === 0) {
+      const initARS  = snap.totalARS;
+      const spyPrice = nearestSPYPrice(spyByDate, snap.date);
+      if (spyPrice) spyUnits = initARS / spyPrice;
+      mpValue = initARS;
+    } else {
+      // Componer MP: usar tasa vigente a esta fecha
+      const rate = mpRateForDate(mpSorted, snap.date);
+      mpValue = mpValue * (1 + rate / 100);
+    }
+
+    const spyPrice = nearestSPYPrice(spyByDate, snap.date);
+    const spyARS   = spyPrice != null ? spyUnits * spyPrice : null;
+
+    // Convertir según moneda seleccionada
+    const toDisplay = v => {
+      if (v == null) return null;
+      return moneda === "MEP" && mepForDay > 1 ? v / mepForDay : v;
+    };
+
+    labels.push(formatDateLabel(snap.date));
+    pignusData.push(toDisplay(snap.totalARS));
+    spyData.push(toDisplay(spyARS));
+    mpData.push(toDisplay(mpValue));
+  }
+
+  return { labels, pignusData, spyData, mpData };
+}
+
+/** Devuelve el precio SPY más reciente disponible en o antes de `targetDate`. */
+function nearestSPYPrice(spyByDate, targetDate) {
+  let best = null;
+  for (const [d, price] of Object.entries(spyByDate)) {
+    if (d <= targetDate) best = price;
+  }
+  return best;
+}
+
+/** Devuelve la tasa diaria MP más reciente en o antes de `date`. Default: 0.089% (~33% TNA). */
+function mpRateForDate(mpSorted, date) {
+  let rate = 0.089;
+  for (const r of mpSorted) {
+    if (r.date <= date) rate = r.dailyPct;
+    else break;
+  }
+  return rate;
+}
+
+function formatDateLabel(dateStr) {
+  const d = new Date(dateStr + "T12:00:00");
+  return d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
+}
+
+function renderHistoryChart(data, moneda) {
+  const canvas = document.getElementById("chartHistory");
+  if (!canvas) return;
+
+  const computed = computeHistoryChartData(
+    data.snapshots, data.spyPrices, data.mpRates, moneda
+  );
+
+  if (!computed || computed.labels.length < 2) return;
+
+  if (chartHistory) chartHistory.destroy();
+
+  const fmtY = v => moneda === "MEP" ? formatUSD(v) : formatARS(v);
+
+  chartHistory = new Chart(canvas, {
+    type: "line",
+    data: {
+      labels: computed.labels,
+      datasets: [
+        {
+          label: "Pignus",
+          data: computed.pignusData,
+          borderColor: "#3b82f6",
+          backgroundColor: "#3b82f610",
+          tension: 0.3,
+          pointRadius: 3,
+          fill: false,
+        },
+        {
+          label: "S&P 500 (SPY)",
+          data: computed.spyData,
+          borderColor: "#f97316",
+          backgroundColor: "#f9731610",
+          tension: 0.3,
+          pointRadius: 3,
+          fill: false,
+        },
+        {
+          label: "Mercado Pago",
+          data: computed.mpData,
+          borderColor: "#10b981",
+          backgroundColor: "#10b98110",
+          tension: 0.3,
+          pointRadius: 3,
+          fill: false,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: {
+          position: "top",
+          labels: { color: "#374151", font: { size: 11 }, padding: 16, boxWidth: 12 },
+        },
+        tooltip: {
+          callbacks: {
+            label(ctx) {
+              const v = ctx.raw;
+              if (v == null) return null;
+              return ` ${ctx.dataset.label}: ${fmtY(v)}`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: "#9ca3af", font: { size: 10 }, maxTicksLimit: 8 },
+          grid:  { color: "#f3f4f6" },
+        },
+        y: {
+          ticks: { color: "#9ca3af", font: { size: 10 }, callback: fmtY },
+          grid:  { color: "#f3f4f6" },
+        },
+      },
+    },
+  });
+}
+
 // ─── Formato de números ───────────────────────────────────────────────────────
 
 function formatARS(v) {
@@ -294,3 +511,5 @@ window.formatARS         = formatARS;
 window.formatUSD         = formatUSD;
 window.formatPct         = formatPct;
 window.renderChart       = renderChart;
+window.renderHistoryChart = renderHistoryChart;
+window.saveMPRate        = saveMPRate;

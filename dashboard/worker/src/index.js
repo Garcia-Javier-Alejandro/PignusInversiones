@@ -60,6 +60,15 @@ export default {
       if (url.pathname === "/api/account") {
         return await handleAccount(request, env);
       }
+      if (url.pathname === "/api/history") {
+        return await handleHistory(request, env);
+      }
+      if (url.pathname === "/api/snapshot" && request.method === "POST") {
+        return await handleSnapshot(request, env);
+      }
+      if (url.pathname === "/api/mp-rate" && request.method === "POST") {
+        return await handleMPRate(request, env);
+      }
       return new Response("Not found", { status: 404 });
     } catch (err) {
       // Si algo falla (IOL caído, token inválido, etc.), devolvemos el error
@@ -95,6 +104,107 @@ async function handleAccount(request, env) {
   const token = await getValidToken(env);
   const data = await iolGet("/api/v2/estadocuenta", token, env);
   return jsonResponse(data, { origin: env.ALLOWED_ORIGIN });
+}
+
+// ─── Historial y benchmarks ───────────────────────────────────────────────────
+
+/**
+ * GET /api/history
+ * Devuelve snapshots de la cartera, precios históricos de SPY (CEDEAR) y tasas MP.
+ */
+async function handleHistory(request, env) {
+  const token = await getValidToken(env);
+  const [snapshots, mpRates, spyPrices] = await Promise.all([
+    kvGet(env, "portfolio_history", []),
+    kvGet(env, "mp_rates", []),
+    getSPYHistory(token, env),
+  ]);
+  return jsonResponse({ snapshots, mpRates, spyPrices }, { origin: env.ALLOWED_ORIGIN });
+}
+
+/**
+ * POST /api/snapshot
+ * Body: { totalARS, mep }
+ * El frontend llama a esto cada vez que carga datos válidos (una vez por día).
+ */
+async function handleSnapshot(request, env) {
+  const { totalARS, mep } = await request.json();
+  if (!totalARS || totalARS <= 0) {
+    return jsonResponse({ error: "Invalid data" }, { status: 400, origin: env.ALLOWED_ORIGIN });
+  }
+
+  const today   = new Date().toISOString().split("T")[0];
+  const history = await kvGet(env, "portfolio_history", []);
+
+  if (history.some(s => s.date === today)) {
+    return jsonResponse({ ok: true, skipped: true }, { origin: env.ALLOWED_ORIGIN });
+  }
+
+  history.push({ date: today, totalARS, mep: mep || null });
+  await env.TOKEN_CACHE.put("portfolio_history", JSON.stringify(history));
+  return jsonResponse({ ok: true }, { origin: env.ALLOWED_ORIGIN });
+}
+
+/**
+ * POST /api/mp-rate
+ * Body: { dailyPct }  — porcentaje diario (ej: 0.089 para ~33% TNA)
+ * Si ya existe un registro para hoy, lo reemplaza.
+ */
+async function handleMPRate(request, env) {
+  const { dailyPct } = await request.json();
+  if (dailyPct == null || isNaN(dailyPct) || dailyPct <= 0) {
+    return jsonResponse({ error: "Invalid rate" }, { status: 400, origin: env.ALLOWED_ORIGIN });
+  }
+
+  const today = new Date().toISOString().split("T")[0];
+  const rates = await kvGet(env, "mp_rates", []);
+  const idx   = rates.findIndex(r => r.date === today);
+  if (idx >= 0) rates[idx].dailyPct = dailyPct;
+  else rates.push({ date: today, dailyPct });
+
+  await env.TOKEN_CACHE.put("mp_rates", JSON.stringify(rates));
+  return jsonResponse({ ok: true }, { origin: env.ALLOWED_ORIGIN });
+}
+
+/**
+ * Obtiene precios históricos del CEDEAR SPY desde IOL (caché de 24h en KV).
+ * Devuelve array de { date: "YYYY-MM-DD", price: number }.
+ */
+async function getSPYHistory(token, env) {
+  const cached = await kvGet(env, "spy_history_cache", null);
+  if (cached && (Date.now() - cached.fetchedAt) < 86_400_000) {
+    return cached.prices;
+  }
+
+  const today      = new Date().toISOString().split("T")[0];
+  const oneYearAgo = new Date(Date.now() - 365 * 86_400_000).toISOString().split("T")[0];
+
+  try {
+    const data = await iolGet(
+      `/api/v2/Titulos/bCBA/SPY/Cotizacion/historica/ajustado/diaria/${oneYearAgo}/${today}`,
+      token,
+      env
+    );
+
+    const prices = (Array.isArray(data) ? data : [])
+      .map(q => ({
+        date:  (q.fechaHora || q.fecha || "").split("T")[0],
+        price: q.ultimoPrecio || q.ultimo || 0,
+      }))
+      .filter(p => p.date && p.price > 0);
+
+    await env.TOKEN_CACHE.put("spy_history_cache", JSON.stringify({ fetchedAt: Date.now(), prices }));
+    return prices;
+  } catch (err) {
+    console.warn("No se pudo obtener historial SPY:", err.message);
+    return cached?.prices || [];
+  }
+}
+
+/** Lee una clave de KV, devuelve fallback si no existe. */
+async function kvGet(env, key, fallback) {
+  const val = await env.TOKEN_CACHE.get(key, { type: "json" });
+  return val ?? fallback;
 }
 
 // ─── Gestión del token IOL con KV ──────────────────────────────────────────────
