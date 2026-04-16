@@ -104,7 +104,7 @@ async function loadDashboard(alpineState) {
       // Guardar snapshot diario y cargar historial (fire-and-forget en paralelo)
       const totalARS = account?.cuentas?.find(c => c.moneda === "peso_Argentino")?.total || 0;
       const totalGanancia = (portfolio.activos || []).reduce((s, a) => s + (a.gananciaDinero || 0), 0);
-      saveSnapshot(totalARS, mep, totalGanancia);
+      saveSnapshot(totalARS, mep, totalGanancia, portfolio.activos || []);
       loadHistory(alpineState);
     } else {
       alpineState.stale = true;
@@ -308,12 +308,12 @@ function buildSectorPerfColors(activos, sectorNames) {
 }
 
 /** Guarda un snapshot del día en el Worker (fire-and-forget). */
-async function saveSnapshot(totalARS, mep, totalGanancia) {
+async function saveSnapshot(totalARS, mep, totalGanancia, activos) {
   try {
     await fetch(`${WORKER_URL}/api/snapshot`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ totalARS, mep, totalGanancia }),
+      body:    JSON.stringify({ totalARS, mep, totalGanancia, activos: activos || [] }),
     });
   } catch (err) {
     console.warn("No se pudo guardar snapshot:", err.message);

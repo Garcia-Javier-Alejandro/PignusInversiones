@@ -66,6 +66,9 @@ export default {
       if (url.pathname === "/api/snapshot" && request.method === "POST") {
         return await handleSnapshot(request, env);
       }
+      if (url.pathname === "/api/positions") {
+        return await handlePositions(request, env);
+      }
       if (url.pathname === "/api/mp-rate" && request.method === "POST") {
         return await handleMPRate(request, env);
       }
@@ -220,11 +223,12 @@ function nearestSpyPrice(spyPrices, targetDate) {
 
 /**
  * POST /api/snapshot
- * Body: { totalARS, mep }
+ * Body: { totalARS, mep, totalGanancia, activos }
  * El frontend llama a esto cada vez que carga datos válidos (una vez por día).
+ * Guarda el resumen del día en portfolio_history y las posiciones compactas en positions_history.
  */
 async function handleSnapshot(request, env) {
-  const { totalARS, mep, totalGanancia } = await request.json();
+  const { totalARS, mep, totalGanancia, activos } = await request.json();
   if (!totalARS || totalARS <= 0) {
     return jsonResponse({ error: "Invalid data" }, { status: 400, origin: env.ALLOWED_ORIGIN });
   }
@@ -236,10 +240,40 @@ async function handleSnapshot(request, env) {
     return jsonResponse({ ok: true, skipped: true }, { origin: env.ALLOWED_ORIGIN });
   }
 
+  // Guardar resumen liviano (totales + benchmarks)
   const mpVcp = await fetchMercadoFondoVCP(today);
   history.push({ date: today, totalARS, totalGanancia: totalGanancia ?? null, mep: mep || null, mpVcp });
   await env.TOKEN_CACHE.put("portfolio_history", JSON.stringify(history));
+
+  // Guardar posiciones compactas (campo a campo para minimizar tamaño en KV)
+  if (Array.isArray(activos) && activos.length > 0) {
+    const positions = await kvGet(env, "positions_history", []);
+    const compact = activos.map(a => ({
+      s:   a.titulo?.simbolo       || a.simbolo            || "",
+      t:   a.titulo?.tipo          || a.tipo               || "",
+      q:   a.cantidad              || 0,
+      ppc: a.ppc                   || 0,
+      v:   a.valorizado            || 0,
+      g:   a.gananciaDinero        || 0,
+      gp:  a.gananciaPorcentaje    || 0,
+    }));
+    positions.push({ date: today, activos: compact });
+    await env.TOKEN_CACHE.put("positions_history", JSON.stringify(positions));
+  }
+
   return jsonResponse({ ok: true }, { origin: env.ALLOWED_ORIGIN });
+}
+
+/**
+ * GET /api/positions
+ * Devuelve el historial completo de posiciones por día.
+ * Cada entrada: { date, activos: [{ s, t, q, ppc, v, g, gp }] }
+ * Campos: s=simbolo, t=tipo, q=cantidad, ppc=precio promedio compra,
+ *         v=valorizado, g=gananciaDinero, gp=gananciaPorcentaje
+ */
+async function handlePositions(request, env) {
+  const positions = await kvGet(env, "positions_history", []);
+  return jsonResponse(positions, { origin: env.ALLOWED_ORIGIN });
 }
 
 /**
@@ -525,7 +559,7 @@ function corsPreflightResponse(allowedOrigin) {
     status: 204,
     headers: {
       "Access-Control-Allow-Origin": allowedOrigin || "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "Access-Control-Max-Age": "86400",
     },
