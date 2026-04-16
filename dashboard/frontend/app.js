@@ -213,6 +213,41 @@ function sortActivos(activos, col, dir) {
 // ─── Cálculos financieros ─────────────────────────────────────────────────────
 
 /**
+ * Rendimiento de los últimos ~30 días, ajustado por depósitos.
+ * Base: snapshot más reciente con antigüedad ≥ 30 días. Si no hay ninguno,
+ * usa el más antiguo disponible (e.g., los primeros días de uso).
+ * Fórmula: (valorHoy − valorBase − Σdepósitos) / valorBase × 100
+ * Retorna { pct, fromDate } o null si no hay datos suficientes.
+ */
+function calcReturn30d(snapshots, deposits, totalCartera) {
+  if (!snapshots || snapshots.length < 2 || !totalCartera) return null;
+
+  const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
+  const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString().split("T")[0];
+
+  // Snapshot base: el más reciente con fecha <= hace 30 días
+  let base = null;
+  for (const s of sorted) {
+    if (s.date <= cutoff) base = s;
+  }
+  // Si todos los snapshots son de menos de 30 días, usar el más antiguo
+  if (!base) base = sorted[0];
+  // No comparar el snapshot más reciente consigo mismo
+  if (base.date === sorted[sorted.length - 1].date) return null;
+
+  if (!base.totalARS || base.totalARS <= 0) return null;
+
+  const depositsInPeriod = (deposits || [])
+    .filter(d => d.date > base.date)
+    .reduce((s, d) => s + (d.amount || 0), 0);
+
+  return {
+    pct:      (totalCartera - base.totalARS - depositsInPeriod) / base.totalARS * 100,
+    fromDate: base.date,
+  };
+}
+
+/**
  * Rendimiento real sobre capital aportado.
  * Fórmula: (valor actual − Σ depósitos) / Σ depósitos × 100
  * Si no hay depósitos registrados, cae al cálculo por PPC (menos preciso).
@@ -799,18 +834,20 @@ function horaActual() {
 }
 
 // ─── Exposición global para Alpine.js ─────────────────────────────────────────
-window.getTipo           = getTipo;
-window.loadDashboard     = loadDashboard;
-window.calcTotalReturn   = calcTotalReturn;
-window.calcTotalCartera  = calcTotalCartera;
-window.getDisponible     = getDisponible;
-window.getActivosConCash = getActivosConCash;
-window.getSector         = getSector;
-window.sortActivos       = sortActivos;
-window.formatValor       = formatValor;
-window.formatARS         = formatARS;
-window.formatUSD         = formatUSD;
-window.formatPct         = formatPct;
-window.renderChart       = renderChart;
+window.getTipo            = getTipo;
+window.loadDashboard      = loadDashboard;
+window.calcTotalReturn    = calcTotalReturn;
+window.calcReturn30d      = calcReturn30d;
+window.calcTotalCartera   = calcTotalCartera;
+window.getDisponible      = getDisponible;
+window.getActivosConCash  = getActivosConCash;
+window.getSector          = getSector;
+window.sortActivos        = sortActivos;
+window.formatValor        = formatValor;
+window.formatARS          = formatARS;
+window.formatUSD          = formatUSD;
+window.formatPct          = formatPct;
+window.formatDateLabel    = formatDateLabel;
+window.renderChart        = renderChart;
 window.renderHistoryChart = renderHistoryChart;
 window.saveMPRate         = saveMPRate;

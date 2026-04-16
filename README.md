@@ -219,7 +219,7 @@ El mapa `SECTORES` en `app.js` es hardcodeado. Para un activo nuevo: agregar `S�
 ## To Do
 
 ### Dashboard — corto plazo
-- [ ] **Rendimiento 30d:** calcular desde snapshots (valor hace 30 días vs hoy, ajustado por depósitos en ese período).
+- [x] **Rendimiento 30d:** `calcReturn30d()` — base: snapshot más reciente ≥ 30 días atrás, ajustado por depósitos en el período. La card muestra la fecha base para que quede claro el período real.
 - [x] **Snapshot completo de posiciones:** `POST /api/snapshot` ahora acepta `activos` y los persiste compactos en `positions_history`. Accesibles via `GET /api/positions`.
 - [ ] **Gráfico histórico normalizado:** opción de ver las curvas indexadas a 100 en el punto inicial del período seleccionado, en lugar de valores absolutos en ARS/USD.
 - [ ] **MEP desde AL30/AL30D:** calcular el MEP implícito directamente desde precios IOL (`precio_AL30_ARS / precio_AL30D_USD`) en lugar de depender de dolarapi.com.

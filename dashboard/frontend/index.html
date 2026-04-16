@@ -69,6 +69,10 @@
         this.sortDir = ['simbolo','tipo','sector'].includes(col) ? 'asc' : 'desc';
       }
     },
+    rend30d() {
+      if (!this.historyData || !this.portfolio || !this.account) return null;
+      return calcReturn30d(this.historyData.snapshots, this.deposits, calcTotalCartera(this.portfolio, this.account));
+    },
     init() {
       loadDashboard(this);
       this.$watch('chartView', v => {
@@ -198,10 +202,14 @@
           x-text="formatPct(calcTotalReturn(getActivosConCash(portfolio, account), calcTotalCartera(portfolio, account), deposits))"></p>
       </div>
 
-      <!-- Rendimiento 30 días (requiere historial) -->
+      <!-- Rendimiento 30 días -->
       <div class="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
         <p class="text-xs text-gray-500 mb-1">Rendimiento 30d</p>
-        <p class="text-base font-bold text-gray-300 leading-tight" title="Próximamente — requiere historial guardado">—</p>
+        <p class="text-base font-bold leading-tight"
+          :class="rend30d() ? (rend30d().pct >= 0 ? 'text-emerald-600' : 'text-red-500') : 'text-gray-300'"
+          x-text="rend30d() ? formatPct(rend30d().pct) : '—'"></p>
+        <p class="text-xs text-gray-400 mt-0.5 leading-tight" x-show="rend30d()"
+          x-text="rend30d() ? 'desde ' + formatDateLabel(rend30d().fromDate) : ''"></p>
       </div>
 
     </section>
