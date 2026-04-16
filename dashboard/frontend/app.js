@@ -99,7 +99,7 @@ async function loadDashboard(alpineState) {
       alpineState.account    = account;
       alpineState.mep        = mep;
       alpineState.updatedAt  = horaActual();
-      renderChart(getActivosConCash(portfolio, account), alpineState.chartView);
+      renderChart(getActivosConCash(portfolio, account), alpineState.chartView, alpineState.chartType);
 
       // Guardar snapshot diario y cargar historial (fire-and-forget en paralelo)
       const totalARS = account?.cuentas?.find(c => c.moneda === "peso_Argentino")?.total || 0;
@@ -512,24 +512,37 @@ function formatPct(v) {
   return `${sign}${v.toLocaleString("es-AR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 }
 
-// ─── Gráfico de torta (único, con vista intercambiable) ───────────────────────
+// ─── Gráfico de composición (torta o treemap) ─────────────────────────────────
 
-function renderChart(activos, view) {
-  const canvas = document.getElementById("chartPie");
-  if (!canvas) return;
+function renderChart(activos, view, chartType = "donut") {
+  if (chartType === "treemap") {
+    renderTreemap(activos, view);
+  } else {
+    renderDonut(activos, view);
+  }
+}
 
+/** Agrupa activos por view (tipo|sector) y devuelve sorted entries + colors. */
+function buildGrupos(activos, view) {
   const grupos = {};
   for (const a of activos) {
     const key = view === "tipo" ? getTipo(a) : getSector(a);
     grupos[key] = (grupos[key] || 0) + (a.valorizado || 0);
   }
-
   const sorted = Object.entries(grupos).sort((a, b) => b[1] - a[1]);
+  const colors = view === "tipo"
+    ? sorted.map(([l]) => COLORES_TIPO[l] || COLORES_TIPO["Otros"])
+    : sorted.map((_, i) => PALETA_SECTORES[i % PALETA_SECTORES.length]);
+  return { sorted, colors };
+}
+
+function renderDonut(activos, view) {
+  const canvas = document.getElementById("chartPie");
+  if (!canvas) return;
+
+  const { sorted, colors } = buildGrupos(activos, view);
   const labels = sorted.map(e => e[0]);
   const data   = sorted.map(e => e[1]);
-  const colors = view === "tipo"
-    ? labels.map(l => COLORES_TIPO[l] || COLORES_TIPO["Otros"])
-    : labels.map((_, i) => PALETA_SECTORES[i % PALETA_SECTORES.length]);
 
   if (chartPie) chartPie.destroy();
 
@@ -546,14 +559,7 @@ function renderChart(activos, view) {
       plugins: {
         legend: {
           position: "right",
-          labels: {
-            color: "#374151",
-            font: { size: 10 },
-            padding: 10,
-            boxWidth: 10,
-            // columna única: limitar el ancho del bloque de leyenda
-            maxWidth: 160,
-          },
+          labels: { color: "#374151", font: { size: 10 }, padding: 10, boxWidth: 10, maxWidth: 160 },
         },
         tooltip: {
           callbacks: {
@@ -575,6 +581,69 @@ function renderChart(activos, view) {
           display(ctx) {
             const total = ctx.dataset.data.reduce((s, v) => s + v, 0);
             return total > 0 && (ctx.dataset.data[ctx.dataIndex] / total) * 100 >= 6;
+          },
+        },
+      },
+    },
+  });
+}
+
+function renderTreemap(activos, view) {
+  const canvas = document.getElementById("chartPie");
+  if (!canvas) return;
+
+  const { sorted, colors } = buildGrupos(activos, view);
+  const total    = sorted.reduce((s, [, v]) => s + v, 0);
+  const colorMap = {};
+  sorted.forEach(([name], i) => { colorMap[name] = colors[i]; });
+
+  if (chartPie) chartPie.destroy();
+
+  chartPie = new Chart(canvas, {
+    type: "treemap",
+    data: {
+      datasets: [{
+        label: "Composición",
+        data: sorted.map(([label, value]) => ({ label, value })),
+        key: "value",
+        labels: {
+          display: true,
+          formatter(ctx) {
+            const d   = ctx.raw._data;
+            if (!d) return "";
+            const pct = total > 0 ? (d.value / total) * 100 : 0;
+            if (pct < 4) return "";
+            if (pct < 8) return pct.toFixed(1) + "%";
+            return [d.label, pct.toFixed(1) + "%"];
+          },
+          color:     ["#fff", "#ffffffcc"],
+          font:      [{ size: 11, weight: "bold" }, { size: 10 }],
+          hoverColor:["#fff", "#ffffffcc"],
+          align: "center",
+          position: "middle",
+        },
+        backgroundColor(ctx) {
+          return colorMap[ctx.raw._data?.label] || "#9ca3af";
+        },
+        borderColor: "#f9fafb",
+        borderWidth: 2,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend:     { display: false },
+        datalabels: { display: false },
+        tooltip: {
+          callbacks: {
+            title(items) { return items[0]?.raw._data?.label || ""; },
+            label(ctx) {
+              const d   = ctx.raw._data;
+              if (!d) return "";
+              const pct = total > 0 ? (d.value / total * 100).toFixed(1) : "0";
+              return ` ${formatARS(d.value)} (${pct}%)`;
+            },
           },
         },
       },
