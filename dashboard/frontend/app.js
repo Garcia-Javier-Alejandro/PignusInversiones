@@ -267,20 +267,15 @@ function lerpColor(hex1, hex2, t) {
 }
 
 /**
- * Paleta estilo Finviz: charcoal oscuro en 0%, rojo saturado en −10%, verde brillante en +10%.
- * Los extremos son intensos y el centro es casi negro — alta legibilidad at-a-glance.
+ * Paleta estilo Finviz: charcoal en 0%, rojo saturado en −10%, verde brillante en +10%.
+ * Escala con raíz cuadrada: diferencias pequeñas (±0.5%) ya muestran tinte visible.
  */
 function perfColor(pct) {
-  const DARK = "#1e2020"; // charcoal casi negro para zona neutra
-  if (pct >= 0.1) {
-    const t = Math.min(1, pct / 10);
-    return lerpColor(DARK, "#1aba64", t); // charcoal → verde brillante
-  }
-  if (pct <= -0.1) {
-    const t = Math.min(1, Math.abs(pct) / 10);
-    return lerpColor(DARK, "#e03131", t); // charcoal → rojo saturado
-  }
-  return DARK;
+  const DARK = "#383a3a"; // charcoal ~10% más claro que antes
+  if (Math.abs(pct) < 0.01) return DARK;
+  const t = Math.min(1, Math.sqrt(Math.abs(pct) / 10));
+  if (pct > 0) return lerpColor(DARK, "#1aba64", t); // charcoal → verde brillante
+  return lerpColor(DARK, "#e03131", t);               // charcoal → rojo saturado
 }
 
 /**
@@ -390,6 +385,31 @@ function computeHistoryChartData(snapshots, spyPrices, deposits, moneda, periodo
   const allSorted      = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
   const depositsSorted = [...(deposits || [])].sort((a, b) => a.date.localeCompare(b.date));
   const cutoff         = periodCutoff(periodo);
+
+  // Insertar puntos sintéticos interpolados en fechas de depósito que no tienen snapshot.
+  // Así la anotación del depósito puede anclarse exactamente en su fecha.
+  const snapDates = new Set(allSorted.map(s => s.date));
+  for (const dep of depositsSorted) {
+    if (snapDates.has(dep.date)) continue;
+    const prev = [...allSorted].reverse().find(s => s.date < dep.date);
+    const next = allSorted.find(s => s.date > dep.date);
+    if (!prev || !next) continue;
+    const d0 = new Date(prev.date + "T12:00:00").getTime();
+    const d1 = new Date(next.date + "T12:00:00").getTime();
+    const dt = new Date(dep.date  + "T12:00:00").getTime();
+    const t  = (dt - d0) / (d1 - d0);
+    const lerp = (a, b) => (a != null && b != null) ? a + t * (b - a) : (a ?? b ?? null);
+    allSorted.push({
+      date:          dep.date,
+      totalARS:      lerp(prev.totalARS, next.totalARS),
+      mep:           lerp(prev.mep,      next.mep),
+      mpVcp:         lerp(prev.mpVcp,    next.mpVcp),
+      totalGanancia: lerp(prev.totalGanancia, next.totalGanancia),
+      synthetic:     true,
+    });
+    snapDates.add(dep.date);
+  }
+  allSorted.sort((a, b) => a.date.localeCompare(b.date));
 
   const spyByDate = {};
   for (const p of (spyPrices || [])) spyByDate[p.date] = p.price;
