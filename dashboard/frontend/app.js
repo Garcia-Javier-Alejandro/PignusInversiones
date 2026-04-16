@@ -250,10 +250,45 @@ async function loadHistory(alpineState) {
     const data = await fetchJSON(`${WORKER_URL}/api/history`);
     alpineState.historyData = data;
     alpineState.deposits    = data.deposits || [];
-    renderHistoryChart(data, alpineState.moneda);
+    renderHistoryChart(data, alpineState.moneda, alpineState.periodoHist);
   } catch (err) {
     console.warn("No se pudo cargar el historial:", err.message);
   }
+}
+
+// ─── Helpers de color por performance ────────────────────────────────────────
+
+/** Interpola linealmente entre dos colores hex. t ∈ [0, 1]. */
+function lerpColor(hex1, hex2, t) {
+  const p = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+  const [r1,g1,b1] = p(hex1);
+  const [r2,g2,b2] = p(hex2);
+  return `rgb(${Math.round(r1+(r2-r1)*t)},${Math.round(g1+(g2-g1)*t)},${Math.round(b1+(b2-b1)*t)})`;
+}
+
+/** Convierte un porcentaje de rendimiento a color rojo-amarillo-verde. maxPct = extremo de la escala. */
+function perfColor(pct, maxPct = 20) {
+  const t = Math.max(-1, Math.min(1, pct / maxPct));
+  return t >= 0
+    ? lerpColor("#f59e0b", "#10b981", t)    // amarillo → verde
+    : lerpColor("#ef4444", "#f59e0b", t+1); // rojo → amarillo
+}
+
+/** Calcula el color de cada sector basándose en su rendimiento ponderado. */
+function buildSectorPerfColors(activos, sectorNames) {
+  const sd = {};
+  for (const a of activos) {
+    if ((a.titulo?.simbolo || a.simbolo) === "CASH") continue;
+    const s = getSector(a);
+    if (!sd[s]) sd[s] = { gain: 0, cost: 0 };
+    sd[s].gain += a.gananciaDinero || 0;
+    sd[s].cost += (a.ppc || 0) * (a.cantidad || 0);
+  }
+  return sectorNames.map(name => {
+    const d = sd[name];
+    if (!d || d.cost <= 0) return "#9ca3af";
+    return perfColor((d.gain / d.cost) * 100);
+  });
 }
 
 /** Guarda un snapshot del día en el Worker (fire-and-forget). */
@@ -328,11 +363,12 @@ async function saveMPRate(alpineState) {
  *   SPY/MP con ese monto al precio de ese día. Así la comparación es justa:
  *   "¿qué hubiera pasado si pusiera cada peso aportado en SPY o MP?"
  */
-function computeHistoryChartData(snapshots, spyPrices, deposits, moneda) {
+function computeHistoryChartData(snapshots, spyPrices, deposits, moneda, periodo) {
   if (!snapshots || snapshots.length < 1) return null;
 
-  const sorted          = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
-  const depositsSorted  = [...(deposits || [])].sort((a, b) => a.date.localeCompare(b.date));
+  const allSorted      = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
+  const depositsSorted = [...(deposits || [])].sort((a, b) => a.date.localeCompare(b.date));
+  const cutoff         = periodCutoff(periodo);
 
   const spyByDate = {};
   for (const p of (spyPrices || [])) spyByDate[p.date] = p.price;
@@ -342,44 +378,57 @@ function computeHistoryChartData(snapshots, spyPrices, deposits, moneda) {
   let lastMpVcp = null;
   let lastDate  = null;
 
-  const labels     = [];
-  const pignusData = [];
-  const spyData    = [];
-  const mpData     = [];
+  const labels         = [];
+  const pignusBaseData = [];
+  const depositBarData = [];
+  const spyData        = [];
+  const mpData         = [];
 
-  for (let i = 0; i < sorted.length; i++) {
-    const snap      = sorted[i];
+  for (const snap of allSorted) {
     const mepForDay = snap.mep || 1;
     if (snap.mpVcp) lastMpVcp = snap.mpVcp;
     const mpVcp = snap.mpVcp || lastMpVcp;
 
-    // Depósitos que ocurrieron entre el snapshot anterior y éste (inclusive)
+    // Acumular unidades benchmark desde el inicio (aunque no esté en el rango visible)
     const lo = lastDate || "0000-00-00";
-    const hi = snap.date;
-    const periodDeposits = depositsSorted.filter(d => d.date > lo && d.date <= hi);
-
+    const periodDeposits = depositsSorted.filter(d => d.date > lo && d.date <= snap.date);
     for (const dep of periodDeposits) {
       const depSpy = dep.spyPrice || nearestSPYPrice(spyByDate, dep.date);
       if (depSpy)     spyUnits += dep.amount / depSpy;
       if (dep.mpVcp)  mpCuotas += dep.amount / dep.mpVcp;
     }
-
     lastDate = snap.date;
+
+    // Solo agregar al output si está dentro del período seleccionado
+    if (cutoff && snap.date < cutoff) continue;
+
+    const depositOnDay = depositsSorted
+      .filter(d => d.date === snap.date)
+      .reduce((s, d) => s + (d.amount || 0), 0);
 
     const spyPrice = nearestSPYPrice(spyByDate, snap.date);
     const spyARS   = spyPrice && spyUnits > 0 ? spyUnits * spyPrice : null;
     const mpARS    = mpVcp    && mpCuotas > 0 ? mpCuotas * mpVcp    : null;
 
-    const toDisplay = v => (v == null) ? null
+    const toDisplay = v => v == null ? null
       : (moneda === "MEP" && mepForDay > 1 ? v / mepForDay : v);
 
     labels.push(formatDateLabel(snap.date));
-    pignusData.push(toDisplay(snap.totalARS));
+    pignusBaseData.push(toDisplay(Math.max(0, (snap.totalARS || 0) - depositOnDay)));
+    depositBarData.push(toDisplay(depositOnDay > 0 ? depositOnDay : null));
     spyData.push(toDisplay(spyARS));
     mpData.push(toDisplay(mpARS));
   }
 
-  return { labels, pignusData, spyData, mpData };
+  return labels.length >= 2 ? { labels, pignusBaseData, depositBarData, spyData, mpData } : null;
+}
+
+/** Fecha de corte para filtrar snapshots según el período seleccionado. */
+function periodCutoff(periodo) {
+  const daysMap = { "1m": 30, "3m": 90, "6m": 180 };
+  const days = daysMap[periodo];
+  if (!days) return null;
+  return new Date(Date.now() - days * 86_400_000).toISOString().split("T")[0];
 }
 
 /** Devuelve el precio SPY más reciente disponible en o antes de `targetDate`. */
@@ -396,49 +445,61 @@ function formatDateLabel(dateStr) {
   return d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
 }
 
-function renderHistoryChart(data, moneda) {
+function renderHistoryChart(data, moneda, periodo) {
   const canvas = document.getElementById("chartHistory");
   if (!canvas) return;
 
-  const computed = computeHistoryChartData(data.snapshots, data.spyPrices, data.deposits, moneda);
-
-  if (!computed || computed.labels.length < 2) return;
+  const computed = computeHistoryChartData(data.snapshots, data.spyPrices, data.deposits, moneda, periodo);
+  if (!computed) return;
 
   if (chartHistory) chartHistory.destroy();
 
   const fmtY = v => moneda === "MEP" ? formatUSD(v) : formatARS(v);
 
   chartHistory = new Chart(canvas, {
-    type: "line",
+    type: "bar",
     data: {
       labels: computed.labels,
       datasets: [
         {
-          label: "Pignus",
-          data: computed.pignusData,
-          borderColor: "#10b981",
-          backgroundColor: "#10b98110",
-          tension: 0.3,
-          pointRadius: 3,
-          fill: false,
+          type:            "bar",
+          label:           "Pignus",
+          data:            computed.pignusBaseData,
+          backgroundColor: "#10b981bb",
+          stack:           "pignus",
+          order:           2,
+          borderRadius:    2,
         },
         {
-          label: "S&P 500",
-          data: computed.spyData,
-          borderColor: "#f97316",
-          backgroundColor: "#f9731610",
-          tension: 0.3,
-          pointRadius: 3,
-          fill: false,
+          type:            "bar",
+          label:           "Depósito",
+          data:            computed.depositBarData,
+          backgroundColor: "#60a5fa99",
+          stack:           "pignus",
+          order:           2,
+          borderRadius:    2,
         },
         {
-          label: "Mercado Pago",
-          data: computed.mpData,
-          borderColor: "#3b82f6",
-          backgroundColor: "#3b82f610",
-          tension: 0.3,
-          pointRadius: 3,
-          fill: false,
+          type:            "line",
+          label:           "S&P 500",
+          data:            computed.spyData,
+          borderColor:     "#f97316",
+          backgroundColor: "transparent",
+          tension:         0.3,
+          pointRadius:     3,
+          fill:            false,
+          order:           1,
+        },
+        {
+          type:            "line",
+          label:           "Mercado Pago",
+          data:            computed.mpData,
+          borderColor:     "#3b82f6",
+          backgroundColor: "transparent",
+          tension:         0.3,
+          pointRadius:     3,
+          fill:            false,
+          order:           1,
         },
       ],
     },
@@ -449,31 +510,26 @@ function renderHistoryChart(data, moneda) {
       plugins: {
         legend: {
           position: "top",
-          labels: {
-            color: "#374151",
-            font: { size: 11 },
-            padding: 16,
-            usePointStyle: true,
-            pointStyle: "line",
-          },
+          labels: { color: "#374151", font: { size: 11 }, padding: 16, boxWidth: 12 },
         },
         datalabels: { display: false },
         tooltip: {
           callbacks: {
             label(ctx) {
-              const v = ctx.raw;
-              if (v == null) return null;
-              return ` ${ctx.dataset.label}: ${fmtY(v)}`;
+              if (ctx.raw == null) return null;
+              return ` ${ctx.dataset.label}: ${fmtY(ctx.raw)}`;
             },
           },
         },
       },
       scales: {
         x: {
+          stacked: true,
           ticks: { color: "#9ca3af", font: { size: 10 }, maxTicksLimit: 8 },
           grid:  { color: "#f3f4f6" },
         },
         y: {
+          stacked: true,
           ticks: { color: "#9ca3af", font: { size: 10 }, callback: fmtY },
           grid:  { color: "#f3f4f6" },
         },
@@ -594,8 +650,12 @@ function renderTreemap(activos, view) {
 
   const { sorted, colors } = buildGrupos(activos, view);
   const total    = sorted.reduce((s, [, v]) => s + v, 0);
+  // Para treemap por sector: codificar colores según rendimiento real
+  const finalColors = (view === "sector")
+    ? buildSectorPerfColors(activos, sorted.map(([name]) => name))
+    : colors;
   const colorMap = {};
-  sorted.forEach(([name], i) => { colorMap[name] = colors[i]; });
+  sorted.forEach(([name], i) => { colorMap[name] = finalColors[i]; });
 
   if (chartPie) chartPie.destroy();
 
