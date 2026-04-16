@@ -424,10 +424,21 @@ function computeHistoryChartData(snapshots, spyPrices, deposits, moneda, periodo
     mpData.push(toDisplay(mpARS));
   }
 
-  // Depósitos dentro del rango visible (para anotaciones en el gráfico)
-  const visibleDeposits = depositsSorted.filter(d =>
-    (!cutoff || d.date >= cutoff) && labels.includes(formatDateLabel(d.date))
-  );
+  // Depósitos dentro del rango visible (para anotaciones).
+  // Como un depósito puede no caer en fecha de snapshot, lo ancla al snapshot
+  // visible más cercano en o después de su fecha.
+  const visibleSnapDates = allSorted
+    .filter(s => !cutoff || s.date >= cutoff)
+    .map(s => s.date);
+
+  const visibleDeposits = depositsSorted
+    .filter(d => !cutoff || d.date >= cutoff)
+    .map(d => {
+      const anchorDate = visibleSnapDates.find(sd => sd >= d.date) || visibleSnapDates[visibleSnapDates.length - 1];
+      if (!anchorDate) return null;
+      return { ...d, annotationLabel: formatDateLabel(anchorDate) };
+    })
+    .filter(Boolean);
 
   return labels.length >= 2 ? { labels, pignusData, spyData, mpData, visibleDeposits } : null;
 }
@@ -474,8 +485,8 @@ function renderHistoryChart(data, moneda, periodo) {
       : `-$${(Math.abs(dep.amount) / 1e6).toFixed(1)}M`;
     annotations[`dep_${dep.date}`] = {
       type:        "line",
-      xMin:        label,
-      xMax:        label,
+      xMin:        dep.annotationLabel || label,
+      xMax:        dep.annotationLabel || label,
       borderColor: "#60a5fa",
       borderWidth: 1.5,
       borderDash:  [4, 3],
@@ -559,6 +570,7 @@ function renderHistoryChart(data, moneda, periodo) {
           grid:  { color: "#f3f4f6" },
         },
         y: {
+          min:   0,
           ticks: { color: "#9ca3af", font: { size: 10 }, callback: fmtY },
           grid:  { color: "#f3f4f6" },
         },
