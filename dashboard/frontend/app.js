@@ -33,7 +33,7 @@ const SECTORES = {
   COPX:    "Materiales estratégicos",
   URA:     "Materiales estratégicos",
   // Mercado amplio EE.UU.
-  SPY:     "Mercado amplio EE.UU.",
+  SPY:     "Mercado USA",
   // Salud
   XLV:     "Salud",
 };
@@ -423,7 +423,7 @@ function renderHistoryChart(data, moneda) {
           fill: false,
         },
         {
-          label: "S&P 500 (SPY)",
+          label: "S&P 500",
           data: computed.spyData,
           borderColor: "#f97316",
           backgroundColor: "#f9731610",
@@ -449,8 +449,15 @@ function renderHistoryChart(data, moneda) {
       plugins: {
         legend: {
           position: "top",
-          labels: { color: "#374151", font: { size: 11 }, padding: 16, boxWidth: 12 },
+          labels: {
+            color: "#374151",
+            font: { size: 11 },
+            padding: 16,
+            usePointStyle: true,
+            pointStyle: "line",
+          },
         },
+        datalabels: { display: false },
         tooltip: {
           callbacks: {
             label(ctx) {
@@ -535,10 +542,18 @@ function renderChart(activos, view) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      layout: { padding: { left: 0 } },
       plugins: {
         legend: {
           position: "right",
-          labels: { color: "#374151", font: { size: 11 }, padding: 12, boxWidth: 12 },
+          labels: {
+            color: "#374151",
+            font: { size: 10 },
+            padding: 10,
+            boxWidth: 10,
+            // columna única: limitar el ancho del bloque de leyenda
+            maxWidth: 160,
+          },
         },
         tooltip: {
           callbacks: {
@@ -547,6 +562,19 @@ function renderChart(activos, view) {
               const pct   = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : "0";
               return ` ${formatARS(ctx.raw)} (${pct}%)`;
             },
+          },
+        },
+        datalabels: {
+          color: "#fff",
+          font: { size: 11, weight: "bold" },
+          formatter(value, ctx) {
+            const total = ctx.dataset.data.reduce((s, v) => s + v, 0);
+            const pct   = total > 0 ? (value / total) * 100 : 0;
+            return pct >= 6 ? pct.toFixed(1) + "%" : "";
+          },
+          display(ctx) {
+            const total = ctx.dataset.data.reduce((s, v) => s + v, 0);
+            return total > 0 && (ctx.dataset.data[ctx.dataIndex] / total) * 100 >= 6;
           },
         },
       },

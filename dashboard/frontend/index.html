@@ -8,6 +8,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  <script>Chart.register(ChartDataLabels);</script>
   <script src="app.js"></script>
 
   <style>
@@ -249,14 +251,11 @@
           <template x-for="d in deposits" :key="d.date">
             <span class="ml-2 bg-gray-100 rounded px-1.5 py-0.5 text-gray-500"
               :title="d.note || (d.auto ? 'Auto-detectado' : '')"
-              x-text="d.date.slice(5) + ' $' + (d.amount/1000000).toFixed(1) + 'M'"></span>
+              x-text="d.date.slice(8)+'/'+d.date.slice(5,7)+'/'+d.date.slice(0,4) + ' $' + (d.amount/1000000).toFixed(1) + 'M'"></span>
           </template>
         </p>
         <p class="text-xs text-gray-300">Los depósitos y retiros se detectan automáticamente.</p>
 
-        <p class="text-xs text-gray-300 mt-2">
-          MP: Mercado Fondo Clase A (CAFCI · argentinadatos.com) · SPY: CEDEAR BCBA (IOL)
-        </p>
       </div>
     </section>
 
@@ -278,7 +277,7 @@
           </svg>
         </button>
       </div>
-      <div class="h-52">
+      <div class="h-64">
         <canvas id="chartPie"></canvas>
       </div>
     </section>
