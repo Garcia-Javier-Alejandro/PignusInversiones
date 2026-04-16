@@ -61,6 +61,8 @@ async function loadDashboard(alpineState) {
       fetchMEP(),
     ]);
 
+    console.log("[DEBUG] account raw:", JSON.stringify(account, null, 2));
+
     if (isValidPortfolio(portfolio)) {
       alpineState.portfolio  = portfolio;
       alpineState.account    = account;
