@@ -49,10 +49,6 @@
     historyData: null,
     deposits: [],
     mpRateInput: '',
-    showDepositForm: false,
-    depositDate: '',
-    depositAmount: '',
-    depositNote: '',
     toast: null,
     showToast(msg) {
       this.toast = msg;
@@ -246,48 +242,17 @@
       <!-- Footer: depósitos + fuente de datos -->
       <div class="mt-3 pt-3 border-t border-gray-100">
 
-        <!-- Lista de depósitos registrados -->
-        <div class="flex items-center justify-between mb-1">
-          <p class="text-xs text-gray-400">
-            Aportes registrados:
-            <span x-show="deposits.length === 0" class="text-gray-300">ninguno</span>
-            <template x-for="d in deposits" :key="d.date">
-              <span class="ml-2 bg-gray-100 rounded px-1.5 py-0.5 text-gray-500"
-                x-text="d.date.slice(5) + ' $' + (d.amount/1000000).toFixed(1) + 'M'"></span>
-            </template>
-          </p>
-          <button
-            @click="showDepositForm = !showDepositForm"
-            class="text-xs text-blue-500 hover:text-blue-700 font-medium"
-          >+ Registrar depósito/retiro</button>
-        </div>
-
-        <!-- Formulario inline -->
-        <div x-show="showDepositForm" class="flex flex-wrap gap-2 items-end mt-2 p-3 bg-gray-50 rounded-lg">
-          <div>
-            <p class="text-xs text-gray-400 mb-1">Fecha</p>
-            <input type="date" x-model="depositDate"
-              class="px-2 py-1 rounded border border-gray-200 text-xs text-gray-700 focus:outline-none focus:border-blue-400" />
-          </div>
-          <div>
-            <p class="text-xs text-gray-400 mb-1">Monto ($)</p>
-            <input type="number" placeholder="4000000" x-model="depositAmount"
-              class="w-32 px-2 py-1 rounded border border-gray-200 text-xs text-gray-700 focus:outline-none focus:border-blue-400" />
-          </div>
-          <div>
-            <p class="text-xs text-gray-400 mb-1">Nota (opcional)</p>
-            <input type="text" placeholder="Segundo aporte" x-model="depositNote"
-              class="w-36 px-2 py-1 rounded border border-gray-200 text-xs text-gray-700 focus:outline-none focus:border-blue-400" />
-          </div>
-          <button
-            @click="saveDeposit($data)"
-            class="px-3 py-1 rounded bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
-          >Guardar</button>
-          <button
-            @click="showDepositForm = false"
-            class="px-3 py-1 rounded bg-gray-100 text-gray-600 text-xs hover:bg-gray-200 transition-colors"
-          >Cancelar</button>
-        </div>
+        <!-- Lista de depósitos detectados automáticamente -->
+        <p class="text-xs text-gray-400 mb-1">
+          Depósitos detectados:
+          <span x-show="deposits.length === 0" class="text-gray-300">ninguno aún</span>
+          <template x-for="d in deposits" :key="d.date">
+            <span class="ml-2 bg-gray-100 rounded px-1.5 py-0.5 text-gray-500"
+              :title="d.note || (d.auto ? 'Auto-detectado' : '')"
+              x-text="d.date.slice(5) + ' $' + (d.amount/1000000).toFixed(1) + 'M'"></span>
+          </template>
+        </p>
+        <p class="text-xs text-gray-300">Los depósitos y retiros se detectan automáticamente.</p>
 
         <p class="text-xs text-gray-300 mt-2">
           MP: Mercado Fondo Clase A (CAFCI · argentinadatos.com) · SPY: CEDEAR BCBA (IOL)

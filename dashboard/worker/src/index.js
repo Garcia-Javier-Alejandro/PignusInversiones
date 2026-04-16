@@ -123,41 +123,47 @@ async function handleAccount(request, env) {
 async function handleHistory(request, env) {
   const token     = await getValidToken(env);
   let   snapshots = await kvGet(env, "portfolio_history", []);
+  let   deposits  = await kvGet(env, "deposits", []);
 
-  // Backfill: snapshots guardados antes de que existiera mpVcp
-  let needsSave = false;
+  // Backfill mpVcp en snapshots que no lo tengan
+  let snapshotsChanged = false;
   for (const snap of snapshots) {
     if (snap.mpVcp == null) {
       snap.mpVcp = await fetchMercadoFondoVCP(snap.date);
-      if (snap.mpVcp) needsSave = true;
+      if (snap.mpVcp) snapshotsChanged = true;
     }
   }
-  if (needsSave) {
+  if (snapshotsChanged) {
     await env.TOKEN_CACHE.put("portfolio_history", JSON.stringify(snapshots));
   }
 
-  const [spyPrices, deposits] = await Promise.all([
-    getSPYHistory(token, env),
-    kvGet(env, "deposits", []),
-  ]);
-
-  // Backfill mpVcp y spyPrice en depósitos que no los tengan aún
+  const spyPrices = await getSPYHistory(token, env);
   const spyByDate = {};
   for (const p of spyPrices) spyByDate[p.date] = p.price;
 
-  let depositsChanged = false;
+  // Inferir depósitos/retiros de snapshots consecutivos con totalGanancia
+  const inferred = inferDeposits(snapshots, deposits);
+  if (inferred.length > 0) {
+    for (const dep of inferred) {
+      // Precios para el benchmark: usar datos del snapshot de ese día
+      const snap = snapshots.find(s => s.date === dep.date);
+      dep.mpVcp    = snap?.mpVcp || null;
+      dep.spyPrice = spyByDate[dep.date] || nearestSpyPrice(spyPrices, dep.date);
+      deposits.push(dep);
+    }
+    deposits.sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  // Backfill mpVcp y spyPrice en depósitos que los necesiten
+  let depositsChanged = inferred.length > 0;
   for (const dep of deposits) {
     if (dep.mpVcp == null) {
       dep.mpVcp = await fetchMercadoFondoVCP(dep.date);
       if (dep.mpVcp) depositsChanged = true;
     }
     if (dep.spyPrice == null) {
-      // Buscar precio exacto o el más reciente anterior a la fecha
-      let best = null;
-      for (const p of spyPrices) {
-        if (p.date <= dep.date && (best == null || p.date > best.date)) best = p;
-      }
-      if (best) { dep.spyPrice = best.price; depositsChanged = true; }
+      const price = spyByDate[dep.date] || nearestSpyPrice(spyPrices, dep.date);
+      if (price) { dep.spyPrice = price; depositsChanged = true; }
     }
   }
   if (depositsChanged) {
@@ -168,12 +174,58 @@ async function handleHistory(request, env) {
 }
 
 /**
+ * Infiere depósitos/retiros comparando snapshots consecutivos.
+ * Condición: ambos deben tener totalGanancia, y el delta inexplicado > $500k.
+ * No duplica depósitos ya registrados en el mismo período.
+ */
+function inferDeposits(snapshots, existingDeposits, threshold = 500_000) {
+  const sorted = [...snapshots]
+    .filter(s => s.totalGanancia != null)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const result = [];
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const prev = sorted[i];
+    const curr = sorted[i + 1];
+
+    const rendimiento = curr.totalGanancia - prev.totalGanancia;
+    const delta       = curr.totalARS      - prev.totalARS;
+    const deposito    = delta - rendimiento;
+
+    if (Math.abs(deposito) < threshold) continue;
+
+    // No duplicar si ya hay un depósito registrado en este período
+    const yaExiste = existingDeposits.some(
+      d => d.date > prev.date && d.date <= curr.date
+    );
+    if (yaExiste) continue;
+
+    result.push({
+      date:   curr.date,
+      amount: Math.round(deposito),
+      note:   "Auto-detectado",
+      auto:   true,
+    });
+  }
+  return result;
+}
+
+/** Devuelve el precio SPY más reciente en o antes de targetDate. */
+function nearestSpyPrice(spyPrices, targetDate) {
+  let best = null;
+  for (const p of spyPrices) {
+    if (p.date <= targetDate && (best == null || p.date > best.date)) best = p;
+  }
+  return best?.price || null;
+}
+
+/**
  * POST /api/snapshot
  * Body: { totalARS, mep }
  * El frontend llama a esto cada vez que carga datos válidos (una vez por día).
  */
 async function handleSnapshot(request, env) {
-  const { totalARS, mep } = await request.json();
+  const { totalARS, mep, totalGanancia } = await request.json();
   if (!totalARS || totalARS <= 0) {
     return jsonResponse({ error: "Invalid data" }, { status: 400, origin: env.ALLOWED_ORIGIN });
   }
@@ -186,7 +238,7 @@ async function handleSnapshot(request, env) {
   }
 
   const mpVcp = await fetchMercadoFondoVCP(today);
-  history.push({ date: today, totalARS, mep: mep || null, mpVcp });
+  history.push({ date: today, totalARS, totalGanancia: totalGanancia ?? null, mep: mep || null, mpVcp });
   await env.TOKEN_CACHE.put("portfolio_history", JSON.stringify(history));
   return jsonResponse({ ok: true }, { origin: env.ALLOWED_ORIGIN });
 }
