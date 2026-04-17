@@ -306,10 +306,9 @@ async function main() {
     const totalARS = cedearARS + bondsARS + iolcamaARS + Math.max(0, cashARS);
 
     // Ganancia total = totalARS - capital_invertido
-    // Capital al 09/03: 8.1M. Al 13/04: +4M = 12.1M (fecha registrada del segundo depósito)
-    // Para 10-12/04 (cash aún sin invertir) dejamos totalGanancia=null para no confundir inferDeposits.
-    const capital = date < "2026-04-13" ? 8100000 : 12100000;
-    const totalGanancia = (date >= "2026-04-10" && date < "2026-04-13") ? null : totalARS - capital;
+    // Depósito inicial: 8.1M el 08/03. Segundo depósito: 4M el 10/04.
+    const capital = date < "2026-04-10" ? 8100000 : 12100000;
+    const totalGanancia = totalARS - capital;
 
     const mpVcp = mpMap[date] || nearest(
       Object.entries(mpMap).map(([d, v]) => ({ date: d, value: v })), date
@@ -386,9 +385,16 @@ async function main() {
     deposits = [];
   }
 
-  const fixedDeposits = deposits.map(d =>
-    d.date === "2026-03-03" ? { ...d, date: "2026-03-08" } : d
-  );
+  // Reconstruir depósitos canónicos: eliminar auto-detectados y corregir fechas
+  const canonicalDeposits = [
+    { date: "2026-03-08", amount: 8100000, note: "Aporte inicial",
+      mpVcp: deposits.find(d => d.date === "2026-03-08" || d.date === "2026-03-03")?.mpVcp ?? null,
+      spyPrice: deposits.find(d => d.date === "2026-03-08" || d.date === "2026-03-03")?.spyPrice ?? null },
+    { date: "2026-04-10", amount: 4000000, note: "Segundo aporte",
+      mpVcp: deposits.find(d => d.date === "2026-04-10" || d.date === "2026-04-13")?.mpVcp ?? null,
+      spyPrice: deposits.find(d => d.date === "2026-04-10" || d.date === "2026-04-13")?.spyPrice ?? null },
+  ];
+  const fixedDeposits = canonicalDeposits;
   console.log("Deposits:", fixedDeposits.map(d => `${d.date}:${d.amount/1e6}M`).join(", "));
 
   // 6. Escribir en KV (o solo mostrar si dry-run)
