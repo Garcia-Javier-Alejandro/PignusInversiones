@@ -26,6 +26,27 @@ const IOL_BASE = "https://api.invertironline.com";
 // IOL emite tokens de 1200 segundos (~20 min). Renovamos si faltan menos de 60s.
 const TOKEN_REFRESH_MARGIN_SEC = 60;
 
+// Sector por símbolo — usado en /api/report-data
+const SECTOR_MAP = {
+  TZX26:   "Renta Fija CER",
+  TX26:    "Renta Fija CER",
+  GLD:     "Materias Primas",
+  COPX:    "Minería",
+  URA:     "Energía",
+  SLB:     "Energía",
+  XOM:     "Energía",
+  XLE:     "Energía",
+  GGAL:    "Acciones Argentinas",
+  VIST:    "Acciones Argentinas",
+  MELI:    "Tecnología",
+  MSFT:    "Tecnología",
+  ASML:    "Tecnología",
+  NU:      "Fintech Global",
+  SPY:     "Renta Variable Global",
+  XLV:     "Salud",
+  IOLCAMA: "Liquidez",
+};
+
 // ─── Entry point del Worker ────────────────────────────────────────────────────
 
 export default {
@@ -80,6 +101,15 @@ export default {
       }
       if (url.pathname === "/api/deposits") {
         return await handleGetDeposits(request, env);
+      }
+      if (url.pathname === "/api/report-data") {
+        return await handleReportData(request, env);
+      }
+      if (url.pathname === "/api/reports" && request.method === "GET") {
+        return await handleGetReports(request, env);
+      }
+      if (url.pathname === "/api/reports" && request.method === "POST") {
+        return await handleSaveReport(request, env);
       }
       return new Response("Not found", { status: 404 });
     } catch (err) {
@@ -429,6 +459,178 @@ async function handleDeposit(request, env) {
   deposits.sort((a, b) => a.date.localeCompare(b.date));
   await env.TOKEN_CACHE.put("deposits", JSON.stringify(deposits));
   return jsonResponse({ ok: true }, { origin: env.ALLOWED_ORIGIN });
+}
+
+// ─── Informes ─────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/report-data?from=YYYY-MM-DD&to=YYYY-MM-DD
+ * Devuelve todos los datos numéricos necesarios para generar el informe del período.
+ */
+async function handleReportData(request, env) {
+  const url  = new URL(request.url);
+  const from = url.searchParams.get("from");
+  const to   = url.searchParams.get("to");
+  if (!from || !to) {
+    return jsonResponse({ error: "from y to requeridos" }, { status: 400, origin: env.ALLOWED_ORIGIN });
+  }
+
+  const [snapshots, deposits, posHistory, spyPrices] = await Promise.all([
+    kvGet(env, "portfolio_history", []),
+    kvGet(env, "deposits", []),
+    kvGet(env, "positions_history", []),
+    getSPYHistory(env),
+  ]);
+
+  // SPY por fecha
+  const spyByDate = {};
+  for (const p of spyPrices) spyByDate[p.date] = p.price;
+
+  // Snapshot más reciente antes del inicio del período → valor inicial
+  const startSnap = [...snapshots]
+    .filter(s => s.date < from)
+    .sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+  const startValue  = startSnap?.totalARS  ?? 0;
+  const startMpVcp  = startSnap?.mpVcp     ?? null;
+  const startSpyPx  = nearestSpyPrice(spyPrices, startSnap?.date ?? from);
+
+  // Snapshot más reciente hasta el fin del período → valor final
+  const endSnap = [...snapshots]
+    .filter(s => s.date <= to)
+    .sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+  const endValue    = endSnap?.totalARS ?? 0;
+  const endMpVcp    = endSnap?.mpVcp    ?? null;
+  const endSpyPx    = nearestSpyPrice(spyPrices, endSnap?.date ?? to);
+
+  // Depósitos del período (fecha > inicio del período, fecha ≤ fin)
+  const periodDeps      = deposits.filter(d => d.date > from && d.date <= to);
+  const periodDepsTotal = periodDeps.reduce((s, d) => s + d.amount, 0);
+
+  // Rendimiento del período
+  const netGain    = endValue - startValue - periodDepsTotal;
+  const returnBase = startValue + periodDepsTotal;
+  const returnPct  = returnBase > 0 ? (netGain / returnBase) * 100 : 0;
+
+  // Rendimiento acumulado total (desde el primer depósito hasta `to`)
+  const allDepsToDate  = deposits.filter(d => d.date <= to);
+  const totalCapital   = allDepsToDate.reduce((s, d) => s + d.amount, 0);
+  const totalGain      = endValue - totalCapital;
+  const totalReturnPct = totalCapital > 0 ? (totalGain / totalCapital) * 100 : 0;
+  const inceptionDate  = allDepsToDate[0]?.date ?? from;
+
+  // Benchmarks
+  const spyReturnPct = startSpyPx && endSpyPx
+    ? ((endSpyPx - startSpyPx) / startSpyPx) * 100
+    : null;
+  const mpReturnPct = startMpVcp && endMpVcp
+    ? ((endMpVcp - startMpVcp) / startMpVcp) * 100
+    : null;
+
+  // Posiciones al cierre del período
+  const latestPos = [...posHistory]
+    .filter(p => p.date <= to)
+    .sort((a, b) => b.date.localeCompare(a.date))[0]?.activos || [];
+
+  const positions = latestPos.map(p => ({
+    symbol:  p.s,
+    type:    p.t,
+    qty:     p.q,
+    ppc:     p.ppc,
+    value:   p.v,
+    gain:    p.g,
+    gainPct: p.gp,
+    sector:  SECTOR_MAP[p.s] || "Otros",
+  })).sort((a, b) => b.value - a.value);
+
+  // Asignación por sector
+  const totalPositionsValue = positions.reduce((s, p) => s + p.value, 0);
+  const sectorTotals = {};
+  for (const p of positions) {
+    sectorTotals[p.sector] = (sectorTotals[p.sector] || 0) + p.value;
+  }
+  const allocation = Object.entries(sectorTotals)
+    .map(([sector, value]) => ({
+      sector,
+      value,
+      pct: totalPositionsValue > 0 ? (value / totalPositionsValue) * 100 : 0,
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  // Historial para el gráfico (desde inception hasta to)
+  const history = snapshots
+    .filter(s => s.date >= inceptionDate && s.date <= to)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  // Precios SPY para el gráfico (mismo rango)
+  const spyHistory = spyPrices
+    .filter(p => p.date >= inceptionDate && p.date <= to)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  // Depósitos para marcadores en el gráfico
+  const depositsForChart = deposits.filter(d => d.date >= inceptionDate && d.date <= to);
+
+  return jsonResponse({
+    period: { from, to },
+    account: {
+      startValue,
+      endValue,
+      deposits:        periodDepsTotal,
+      depositsDetail:  periodDeps,
+      withdrawals:     0,
+      netGain,
+      returnPct,
+      totalReturnPct,
+      totalGain,
+      totalCapital,
+      inceptionDate,
+    },
+    benchmarks: {
+      spy: { startPrice: startSpyPx, endPrice: endSpyPx, returnPct: spyReturnPct },
+      mp:  { startVcp:   startMpVcp, endVcp:   endMpVcp, returnPct: mpReturnPct  },
+    },
+    positions,
+    allocation,
+    history,
+    spyHistory,
+    deposits: depositsForChart,
+  }, { origin: env.ALLOWED_ORIGIN });
+}
+
+/** GET /api/reports — lista los informes generados (metadatos). */
+async function handleGetReports(request, env) {
+  const reports = await kvGet(env, "reports_list", []);
+  return jsonResponse(reports, { origin: env.ALLOWED_ORIGIN });
+}
+
+/** POST /api/reports — guarda metadatos de un informe recién generado. */
+async function handleSaveReport(request, env) {
+  const { from, to, label } = await request.json();
+  if (!from || !to) {
+    return jsonResponse({ error: "from y to requeridos" }, { status: 400, origin: env.ALLOWED_ORIGIN });
+  }
+  const reports = await kvGet(env, "reports_list", []);
+  const entry = {
+    id:          Date.now().toString(),
+    generatedAt: new Date().toISOString(),
+    from,
+    to,
+    label:       label || formatPeriodLabel(from, to),
+  };
+  reports.unshift(entry);
+  await env.TOKEN_CACHE.put("reports_list", JSON.stringify(reports));
+  return jsonResponse({ ok: true, id: entry.id }, { origin: env.ALLOWED_ORIGIN });
+}
+
+/** Genera una etiqueta legible para un rango de fechas, ej: "Marzo 2026" o "Mar–Abr 2026" */
+function formatPeriodLabel(from, to) {
+  const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
+                  "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  const f = new Date(from + "T12:00:00Z");
+  const t = new Date(to   + "T12:00:00Z");
+  if (f.getUTCMonth() === t.getUTCMonth() && f.getUTCFullYear() === t.getUTCFullYear()) {
+    return `${MONTHS[f.getUTCMonth()]} ${f.getUTCFullYear()}`;
+  }
+  return `${MONTHS[f.getUTCMonth()]}–${MONTHS[t.getUTCMonth()]} ${t.getUTCFullYear()}`;
 }
 
 /**

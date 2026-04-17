@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Informe Pignus</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  /* ── Reset & base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --pignus:   #1a3a5c;
+    --accent:   #2a7ae2;
+    --green:    #1a7a4a;
+    --red:      #c0392b;
+    --border:   #d8dee6;
+    --bg:       #f7f9fc;
+    --card:     #ffffff;
+    --text:     #1e2a38;
+    --muted:    #6b7a8d;
+    --font:     'Segoe UI', system-ui, sans-serif;
+  }
+
+  body {
+    font-family: var(--font);
+    font-size: 14px;
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.55;
+  }
+
+  /* ── Layout ── */
+  .page-wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+
+  /* ── Header ── */
+  .report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 20px;
+    border-bottom: 3px solid var(--pignus);
+    margin-bottom: 32px;
+  }
+  .report-header .brand { font-size: 22px; font-weight: 700; color: var(--pignus); }
+  .report-header .meta  { text-align: right; color: var(--muted); font-size: 13px; line-height: 1.7; }
+  .report-header .meta strong { color: var(--text); }
+
+  /* ── Section titles ── */
+  h2 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--pignus);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin: 36px 0 14px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 0 8px; text-transform: uppercase; letter-spacing: .05em; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 22px;
+  }
+
+  /* ── KPI grid ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  .kpi {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .kpi .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+  .kpi .value { font-size: 22px; font-weight: 700; color: var(--text); }
+  .kpi .value.pos { color: var(--green); }
+  .kpi .value.neg { color: var(--red); }
+  .kpi .sub   { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* ── Benchmark table ── */
+  .bench-table { width: 100%; border-collapse: collapse; }
+  .bench-table th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .bench-table td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid #eef1f5; }
+  .bench-table tr:last-child td { border-bottom: none; }
+  .bench-table .ret.pos { color: var(--green); font-weight: 600; }
+  .bench-table .ret.neg { color: var(--red);   font-weight: 600; }
+  .bench-table .highlight { font-weight: 600; color: var(--pignus); }
+
+  /* ── Placeholder ── */
+  .placeholder {
+    background: #f0f4f9;
+    border: 1.5px dashed var(--border);
+    border-radius: 8px;
+    padding: 22px;
+    color: var(--muted);
+    font-style: italic;
+    font-size: 13px;
+    text-align: center;
+    margin-top: 14px;
+  }
+
+  /* ── Positions table ── */
+  .pos-table { width: 100%; border-collapse: collapse; }
+  .pos-table th {
+    text-align: right;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .pos-table th:first-child { text-align: left; }
+  .pos-table td { padding: 9px 10px; font-size: 13px; text-align: right; border-bottom: 1px solid #eef1f5; }
+  .pos-table td:first-child { text-align: left; font-weight: 600; }
+  .pos-table tr:last-child td { border-bottom: none; }
+  .pos-table .pos { color: var(--green); }
+  .pos-table .neg { color: var(--red); }
+
+  /* ── Sector allocation ── */
+  .alloc-wrap {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 28px;
+    align-items: center;
+  }
+  .alloc-chart-wrap { position: relative; width: 200px; height: 200px; }
+  .alloc-rows { display: flex; flex-direction: column; gap: 10px; }
+  .alloc-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .alloc-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+  .alloc-label { flex: 1; color: var(--text); }
+  .alloc-pct { font-weight: 600; color: var(--text); min-width: 44px; text-align: right; }
+  .alloc-val { color: var(--muted); min-width: 90px; text-align: right; }
+
+  /* ── Chart ── */
+  .chart-wrap { position: relative; height: 280px; }
+
+  /* ── Print ── */
+  .print-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--pignus);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 11px 22px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,.18);
+    z-index: 100;
+  }
+  .print-btn:hover { background: #122a45; }
+
+  /* ── Loading / error ── */
+  .state-msg {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--muted);
+    font-size: 15px;
+  }
+  .state-msg.error { color: var(--red); }
+
+  @media print {
+    body { background: #fff; }
+    .print-btn { display: none; }
+    .page-wrap { padding: 0; max-width: 100%; }
+    h2 { page-break-after: avoid; }
+    .card { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-wrap" id="report">
+  <div class="state-msg" id="loading">Cargando datos del informe…</div>
+</div>
+
+<button class="print-btn" onclick="window.print()">Imprimir / Guardar PDF</button>
+
+<script>
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+const WORKER_URL = (() => {
+  const m = document.cookie.match(/WORKER_URL=([^;]+)/);
+  if (m) return decodeURIComponent(m[1]);
+  return localStorage.getItem("WORKER_URL") || "";
+})();
+
+const MONTHS_ES = ["enero","febrero","marzo","abril","mayo","junio",
+                   "julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const MONTHS_CAP = MONTHS_ES.map(m => m[0].toUpperCase() + m.slice(1));
+
+function fmtARS(v) {
+  if (v == null || isNaN(v)) return "—";
+  return "$" + Math.round(v).toLocaleString("es-AR");
+}
+function fmtPct(v, decimals = 2) {
+  if (v == null || isNaN(v)) return "—";
+  const s = v.toFixed(decimals).replace(".", ",");
+  return (v >= 0 ? "+" : "") + s + "%";
+}
+function pctClass(v) { return v == null ? "" : v >= 0 ? "pos" : "neg"; }
+
+function periodLabel(from, to) {
+  const f = new Date(from + "T12:00:00Z");
+  const t = new Date(to   + "T12:00:00Z");
+  if (f.getUTCMonth() === t.getUTCMonth() && f.getUTCFullYear() === t.getUTCFullYear()) {
+    return `${MONTHS_CAP[f.getUTCMonth()]} ${f.getUTCFullYear()}`;
+  }
+  return `${MONTHS_CAP[f.getUTCMonth()]}–${MONTHS_CAP[t.getUTCMonth()]} ${t.getUTCFullYear()}`;
+}
+
+function fmtDate(d) {
+  const [y, m, day] = d.split("-");
+  return `${day}/${m}/${y}`;
+}
+
+// ── Sector colors ─────────────────────────────────────────────────────────────
+const SECTOR_COLORS = {
+  "Renta Fija CER":        "#2a7ae2",
+  "Materias Primas":       "#f0a500",
+  "Acciones Argentinas":   "#1a7a4a",
+  "Tecnología":            "#7c3aed",
+  "Energía":               "#e25c2a",
+  "Minería":               "#a05020",
+  "Fintech Global":        "#e22a7a",
+  "Renta Variable Global": "#2a9ae2",
+  "Salud":                 "#20b2aa",
+  "Liquidez":              "#8090a0",
+  "Otros":                 "#bbb",
+};
+
+// ── Render ────────────────────────────────────────────────────────────────────
+
+function renderReport(d) {
+  const { period, account, benchmarks, positions, allocation, history, spyHistory, deposits } = d;
+  const label = periodLabel(period.from, period.to);
+  const today = new Date().toLocaleDateString("es-AR");
+
+  const wrap = document.getElementById("report");
+  wrap.innerHTML = `
+    <!-- Header -->
+    <div class="report-header">
+      <div>
+        <div class="brand">Pignus — Informe de Inversión</div>
+        <div style="color:var(--muted);font-size:13px;margin-top:4px;">Período: <strong>${label}</strong></div>
+      </div>
+      <div class="meta">
+        <div>Titular: <strong>Graciela Spatuzza</strong></div>
+        <div>Cuenta: <strong>Pignus</strong></div>
+        <div>Emitido: <strong>${today}</strong></div>
+      </div>
+    </div>
+
+    <!-- 1. Resumen inicial -->
+    <h2>Resumen del Período</h2>
+    <p style="margin-bottom:18px;color:var(--muted);font-size:13px;">
+      Informe correspondiente al período <strong>${fmtDate(period.from)}</strong> –
+      <strong>${fmtDate(period.to)}</strong>.
+      ${account.deposits > 0
+        ? `Durante el período se registraron aportes por <strong>${fmtARS(account.deposits)}</strong>.`
+        : "No se realizaron aportes ni retiros durante el período."}
+      El rendimiento sobre capital aportado fue
+      <strong class="${pctClass(account.returnPct)}">${fmtPct(account.returnPct)}</strong>
+      y el rendimiento acumulado total desde el inicio de la cuenta es
+      <strong class="${pctClass(account.totalReturnPct)}">${fmtPct(account.totalReturnPct)}</strong>.
+    </p>
+
+    <div class="kpi-grid">
+      ${kpi("Capital inicial del período", fmtARS(account.startValue))}
+      ${kpi("Aportes del período",         fmtARS(account.deposits),     account.deposits > 0 ? "+" : "")}
+      ${kpi("Retiros",                     fmtARS(account.withdrawals))}
+      ${kpi("Valor actual",                fmtARS(account.endValue))}
+      ${kpi("Ganancia / Pérdida neta",     fmtARS(account.netGain),      "", pctClass(account.netGain))}
+      ${kpi("Rendimiento del período",     fmtPct(account.returnPct),    "", pctClass(account.returnPct))}
+      ${kpi("Rendimiento acumulado total", fmtPct(account.totalReturnPct), "", pctClass(account.totalReturnPct), `Desde ${fmtDate(account.inceptionDate)}`)}
+    </div>
+
+    <h3>Evolución histórica de la cartera</h3>
+    <div class="card" style="padding:16px 12px;">
+      <div class="chart-wrap"><canvas id="histChart"></canvas></div>
+    </div>
+
+    <!-- 2. Comparación con mercado -->
+    <h2>Comparación con Referencias de Mercado — ${label}</h2>
+    <div class="card">
+      <table class="bench-table">
+        <thead>
+          <tr>
+            <th>Referencia</th>
+            <th style="text-align:right">Rendimiento del período</th>
+            <th style="text-align:right">vs. Cartera Pignus</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${benchRow("Cartera Pignus", account.returnPct, null, true)}
+          ${benchRow("S&P 500 (SPY.BA)", benchmarks.spy.returnPct, account.returnPct)}
+          ${benchRow("Mercado Pago (VCP)", benchmarks.mp.returnPct, account.returnPct)}
+        </tbody>
+      </table>
+    </div>
+    <div class="placeholder">💬 Lectura rápida — En construcción</div>
+
+    <!-- 3. Composición actual del portafolio -->
+    <h2>Composición Actual del Portafolio</h2>
+    <div class="card" style="overflow-x:auto;">
+      <table class="pos-table">
+        <thead>
+          <tr>
+            <th>Símbolo</th>
+            <th>Sector</th>
+            <th>Cantidad</th>
+            <th>PPC</th>
+            <th>Valorizado</th>
+            <th>Ganancia $</th>
+            <th>Ganancia %</th>
+          </tr>
+        </thead>
+        <tbody id="posBody">${posRows(positions)}</tbody>
+        <tfoot>
+          <tr style="font-weight:700;background:#f7f9fc;">
+            <td colspan="4">Total posiciones</td>
+            <td>${fmtARS(positions.reduce((s,p)=>s+p.value,0))}</td>
+            <td class="${pctClass(positions.reduce((s,p)=>s+p.gain,0))}">${fmtARS(positions.reduce((s,p)=>s+p.gain,0))}</td>
+            <td>—</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- 4. Asignación por sector -->
+    <h2>Asignación por Sector</h2>
+    <div class="card">
+      <div class="alloc-wrap">
+        <div class="alloc-chart-wrap"><canvas id="allocChart"></canvas></div>
+        <div class="alloc-rows" id="allocRows">${allocRows(allocation)}</div>
+      </div>
+    </div>
+
+    <!-- 5. Conclusiones -->
+    <h2>Conclusiones</h2>
+    <div class="placeholder">💬 Conclusiones — En construcción</div>
+  `;
+
+  buildHistChart(history, spyHistory, deposits, account);
+  buildAllocChart(allocation);
+}
+
+function kpi(label, value, prefix = "", cls = "", sub = "") {
+  return `
+    <div class="kpi">
+      <div class="label">${label}</div>
+      <div class="value ${cls}">${prefix}${value}</div>
+      ${sub ? `<div class="sub">${sub}</div>` : ""}
+    </div>`;
+}
+
+function benchRow(name, ret, portfolioRet, isMain = false) {
+  const retStr  = fmtPct(ret);
+  const diff    = (ret != null && portfolioRet != null) ? (portfolioRet - ret) : null;
+  const diffStr = diff != null
+    ? `<span class="${pctClass(diff)}">${fmtPct(diff)} vs. referencia</span>`
+    : "—";
+  return `
+    <tr>
+      <td class="${isMain ? "highlight" : ""}">${name}</td>
+      <td style="text-align:right" class="ret ${pctClass(ret)}">${retStr}</td>
+      <td style="text-align:right">${isMain ? "—" : diffStr}</td>
+    </tr>`;
+}
+
+function posRows(positions) {
+  return positions.map(p => `
+    <tr>
+      <td>${p.symbol}</td>
+      <td style="color:var(--muted);font-weight:400">${p.sector}</td>
+      <td>${p.qty.toLocaleString("es-AR")}</td>
+      <td>${fmtARS(p.ppc)}</td>
+      <td>${fmtARS(p.value)}</td>
+      <td class="${pctClass(p.gain)}">${fmtARS(p.gain)}</td>
+      <td class="${pctClass(p.gainPct)}">${fmtPct(p.gainPct)}</td>
+    </tr>`).join("");
+}
+
+function allocRows(allocation) {
+  return allocation.map(a => {
+    const color = SECTOR_COLORS[a.sector] || "#bbb";
+    return `
+      <div class="alloc-row">
+        <div class="alloc-dot" style="background:${color}"></div>
+        <div class="alloc-label">${a.sector}</div>
+        <div class="alloc-pct">${a.pct.toFixed(1).replace(".",",")}%</div>
+        <div class="alloc-val">${fmtARS(a.value)}</div>
+      </div>`;
+  }).join("");
+}
+
+// ── Charts ────────────────────────────────────────────────────────────────────
+
+function buildHistChart(history, spyHistory, deposits, account) {
+  if (!history.length) return;
+
+  // Rebase benchmarks al capital inicial (con ajuste por depósitos)
+  const labels     = history.map(s => s.date);
+  const portfolio  = history.map(s => s.totalARS);
+
+  // SPY rebased: simula el mismo capital invertido en SPY
+  const spyMap = {};
+  for (const p of spyHistory) spyMap[p.date] = p.price;
+  function nearestSpyPx(date) {
+    const keys = Object.keys(spyMap).filter(d => d <= date).sort();
+    return keys.length ? spyMap[keys[keys.length-1]] : null;
+  }
+
+  // MP rebased: usa mpVcp de los snapshots
+  function nearestMpVcp(date) {
+    const s = [...history].filter(h => h.date <= date && h.mpVcp).sort((a,b)=>b.date.localeCompare(a.date));
+    return s[0]?.mpVcp ?? null;
+  }
+
+  // Construir líneas rebased con manejo de depósitos
+  // Lógica: en cada depósito, se "agregan" unidades del benchmark
+  const depositsMap = {};
+  for (const d of deposits) depositsMap[d.date] = (depositsMap[d.date] || 0) + d.amount;
+
+  let spyUnits = 0, mpUnits = 0;
+  let spyBase  = null, mpBase = null;
+
+  // Inicializar en la primera fecha con precio disponible
+  const firstSnap = history[0];
+  const spyPx0    = nearestSpyPx(firstSnap.date);
+  const mpVcp0    = nearestMpVcp(firstSnap.date);
+  const dep0      = depositsMap[firstSnap.date] ?? 0;
+  const capital0  = firstSnap.totalARS;
+
+  if (spyPx0)  { spyUnits = capital0 / spyPx0;  spyBase = spyPx0; }
+  if (mpVcp0)  { mpUnits  = capital0 / mpVcp0;   mpBase  = mpVcp0; }
+
+  const spyLine = [], mpLine = [];
+  for (const snap of history) {
+    // Procesar depósitos del día (después del primer snap)
+    if (snap.date !== firstSnap.date && depositsMap[snap.date]) {
+      const dep  = depositsMap[snap.date];
+      const sPx  = nearestSpyPx(snap.date);
+      const mVcp = nearestMpVcp(snap.date);
+      if (sPx  && spyUnits > 0) spyUnits += dep / sPx;
+      if (mVcp && mpUnits  > 0) mpUnits  += dep / mVcp;
+    }
+    const sPx  = nearestSpyPx(snap.date);
+    const mVcp = nearestMpVcp(snap.date);
+    spyLine.push(sPx  && spyUnits > 0 ? spyUnits * sPx  : null);
+    mpLine.push( mVcp && mpUnits  > 0 ? mpUnits  * mVcp : null);
+  }
+
+  // Anotaciones de depósitos
+  const depositAnnotations = deposits.map(dep => ({
+    type: "line",
+    xMin: dep.date, xMax: dep.date,
+    borderColor: "rgba(42,122,226,.45)",
+    borderWidth: 1.5,
+    borderDash: [4, 4],
+  }));
+
+  new Chart(document.getElementById("histChart"), {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Cartera Pignus",
+          data: portfolio,
+          borderColor: "#1a3a5c",
+          backgroundColor: "rgba(26,58,92,.07)",
+          fill: true,
+          tension: .35,
+          pointRadius: 0,
+          borderWidth: 2.5,
+        },
+        {
+          label: "S&P 500 (rebased)",
+          data: spyLine,
+          borderColor: "#e25c2a",
+          fill: false,
+          tension: .3,
+          pointRadius: 0,
+          borderWidth: 1.5,
+          borderDash: [5, 3],
+        },
+        {
+          label: "Mercado Pago (rebased)",
+          data: mpLine,
+          borderColor: "#1a7a4a",
+          fill: false,
+          tension: .3,
+          pointRadius: 0,
+          borderWidth: 1.5,
+          borderDash: [3, 3],
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { position: "top", labels: { boxWidth: 14, font: { size: 12 } } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${fmtARS(ctx.raw)}`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          ticks: {
+            maxTicksLimit: 8,
+            callback(val, i) {
+              const d = this.getLabelForValue(val);
+              const [y,m,day] = d.split("-");
+              return `${day}/${m}`;
+            },
+          },
+          grid: { color: "#eef1f5" },
+        },
+        y: {
+          ticks: {
+            callback: v => "$" + (v >= 1e6 ? (v/1e6).toFixed(1)+"M" : (v/1e3).toFixed(0)+"K"),
+          },
+          grid: { color: "#eef1f5" },
+        },
+      },
+    },
+  });
+}
+
+function buildAllocChart(allocation) {
+  const labels = allocation.map(a => a.sector);
+  const values = allocation.map(a => a.value);
+  const colors = labels.map(l => SECTOR_COLORS[l] || "#bbb");
+
+  new Chart(document.getElementById("allocChart"), {
+    type: "doughnut",
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: "#fff" }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      cutout: "62%",
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.label}: ${fmtARS(ctx.raw)} (${(ctx.raw/values.reduce((a,b)=>a+b,0)*100).toFixed(1)}%)`,
+          },
+        },
+      },
+    },
+  });
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+
+async function init() {
+  const params = new URLSearchParams(location.search);
+  const from   = params.get("from");
+  const to     = params.get("to");
+
+  if (!from || !to) {
+    document.getElementById("loading").textContent =
+      "Faltan parámetros: ?from=YYYY-MM-DD&to=YYYY-MM-DD";
+    return;
+  }
+
+  if (!WORKER_URL) {
+    document.getElementById("loading").innerHTML =
+      `<div class="error">No se encontró la URL del Worker.<br>Accedé al informe desde el dashboard.</div>`;
+    return;
+  }
+
+  try {
+    const res = await fetch(`${WORKER_URL}/api/report-data?from=${from}&to=${to}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    // Guardar informe en KV (fire-and-forget)
+    fetch(`${WORKER_URL}/api/reports`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ from, to }),
+    }).catch(() => {});
+
+    renderReport(data);
+  } catch (err) {
+    const el = document.getElementById("loading");
+    el.className = "state-msg error";
+    el.textContent = "Error cargando datos: " + err.message;
+  }
+}
+
+init();
+</script>
+</body>
+</html>

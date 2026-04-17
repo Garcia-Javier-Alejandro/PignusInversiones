@@ -56,6 +56,11 @@
     deposits: [],
     mpRateInput: '',
     toast: null,
+    showReportModal: false,
+    showReportsList: false,
+    reportFrom: '',
+    reportTo: '',
+    reportsList: [],
     showToast(msg) {
       this.toast = msg;
       setTimeout(() => this.toast = null, 3500);
@@ -93,7 +98,38 @@
           if (this.historyData) renderHistoryChart(this.historyData, this.moneda, v);
         });
       });
-    }
+
+      // Pre-cargar fechas del modal: desde el último informe hasta hoy
+      const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Argentina/Buenos_Aires' });
+      this.reportTo = todayStr;
+      fetch(WORKER_URL + '/api/reports')
+        .then(r => r.json())
+        .then(list => {
+          this.reportsList = list || [];
+          this.reportFrom = list?.length ? list[0].to : (this.deposits[0]?.date ?? todayStr);
+        })
+        .catch(() => {
+          this.reportFrom = todayStr;
+        });
+    },
+    reportUrl(from, to) {
+      return `informe.html?from=${from}&to=${to}`;
+    },
+    openReport() {
+      if (!this.reportFrom || !this.reportTo) { this.showToast('Seleccioná el rango de fechas'); return; }
+      window.open(this.reportUrl(this.reportFrom, this.reportTo), '_blank');
+    },
+    openLastReport() {
+      if (!this.reportsList.length) { this.showToast('No hay informes anteriores'); return; }
+      const last = this.reportsList[0];
+      window.open(this.reportUrl(last.from, last.to), '_blank');
+    },
+    async loadReportsList() {
+      try {
+        const r = await fetch(WORKER_URL + '/api/reports');
+        this.reportsList = await r.json() || [];
+      } catch { this.reportsList = []; }
+    },
   }"
 >
 
@@ -520,6 +556,93 @@
     </section>
 
   </main>
+
+  <!-- ── Sección Informes ──────────────────────────────────────────────────── -->
+  <div class="max-w-3xl mx-auto px-4 pb-6" x-show="portfolio">
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Informes</h2>
+      <div class="flex flex-wrap gap-2">
+
+        <!-- Generar Informe -->
+        <button @click="showReportModal = true"
+          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-700 text-white hover:bg-blue-800 transition-colors">
+          📄 Generar Informe
+        </button>
+
+        <!-- Descargar último informe -->
+        <button @click="openLastReport()"
+          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
+          ⬇ Último Informe
+        </button>
+
+        <!-- Informes anteriores -->
+        <button @click="showReportsList = true; loadReportsList()"
+          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
+          📂 Informes Anteriores
+        </button>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Generar Informe -->
+  <div x-show="showReportModal" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+       @keydown.escape.window="showReportModal = false">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4" @click.stop>
+      <h3 class="text-base font-semibold text-gray-800 mb-4">Generar Informe</h3>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Desde</label>
+          <input type="date" x-model="reportFrom"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Hasta</label>
+          <input type="date" x-model="reportTo"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+      </div>
+      <div class="flex gap-2 mt-5">
+        <button @click="showReportModal = false"
+          class="flex-1 py-2 rounded-lg text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">
+          Cancelar
+        </button>
+        <button @click="openReport(); showReportModal = false"
+          class="flex-1 py-2 rounded-lg text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 transition-colors">
+          Generar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Informes Anteriores -->
+  <div x-show="showReportsList" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+       @keydown.escape.window="showReportsList = false">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4" @click.stop>
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-base font-semibold text-gray-800">Informes Anteriores</h3>
+        <button @click="showReportsList = false" class="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+      </div>
+      <div x-show="!reportsList.length" class="text-sm text-gray-400 text-center py-6">
+        No hay informes generados aún.
+      </div>
+      <ul class="space-y-2 max-h-72 overflow-y-auto">
+        <template x-for="r in reportsList" :key="r.id">
+          <li>
+            <button @click="window.open(reportUrl(r.from, r.to)); showReportsList = false"
+              class="w-full text-left px-3 py-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+              <div class="text-sm font-medium text-gray-700" x-text="r.label"></div>
+              <div class="text-xs text-gray-400 mt-0.5"
+                x-text="r.from + ' → ' + r.to + ' · ' + new Date(r.generatedAt).toLocaleDateString('es-AR')">
+              </div>
+            </button>
+          </li>
+        </template>
+      </ul>
+    </div>
+  </div>
 
   <!-- ── Footer ────────────────────────────────────────────────────────────── -->
   <footer class="max-w-3xl mx-auto px-4 py-8 text-center text-xs text-gray-300">
