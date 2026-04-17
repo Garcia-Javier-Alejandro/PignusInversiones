@@ -532,8 +532,8 @@ function nearestSPYPrice(spyByDate, targetDate) {
 }
 
 function formatDateLabel(dateStr) {
-  const d = new Date(dateStr + "T12:00:00");
-  return d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
 }
 
 function renderHistoryChart(data, moneda, periodo) {
@@ -630,8 +630,8 @@ function renderHistoryChart(data, moneda, periodo) {
           callbacks: {
             title(items) {
               if (!items.length) return '';
-              return new Date(items[0].parsed.x)
-                .toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" });
+              const d = new Date(items[0].parsed.x);
+              return `${String(d.getUTCDate()).padStart(2,"0")}/${String(d.getUTCMonth()+1).padStart(2,"0")}/${d.getUTCFullYear()}`;
             },
             label(ctx) {
               if (ctx.parsed.y == null) return null;
@@ -648,7 +648,8 @@ function renderHistoryChart(data, moneda, periodo) {
             font: { size: 10 },
             maxTicksLimit: 8,
             callback(v) {
-              return new Date(v).toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
+              const d = new Date(v);
+              return `${String(d.getUTCDate()).padStart(2,"0")}/${String(d.getUTCMonth()+1).padStart(2,"0")}`;
             },
           },
           grid: { color: "#f3f4f6" },

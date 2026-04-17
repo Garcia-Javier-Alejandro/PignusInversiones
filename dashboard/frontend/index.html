@@ -259,20 +259,23 @@
 
     </section>
 
-    <!-- ─ Botones de informes ─────────────────────────────────────────────── -->
-    <section x-show="portfolio" class="flex gap-3">
-      <button
-        @click="showToast('En construcción 🚧')"
-        class="flex-1 py-2.5 px-4 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
-      >
-        Descargar último informe
-      </button>
-      <button
-        @click="showToast('En construcción 🚧')"
-        class="flex-1 py-2.5 px-4 rounded-xl bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 transition-colors shadow-sm"
-      >
-        Generar nuevo informe
-      </button>
+    <!-- ─ Informes ──────────────────────────────────────────────────────── -->
+    <section x-show="portfolio" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+      <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Informes</h2>
+      <div class="flex flex-wrap gap-2">
+        <button @click="showReportModal = true"
+          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm">
+          📄 Generar Informe
+        </button>
+        <button @click="openLastReport()"
+          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">
+          ⬇ Último Informe
+        </button>
+        <button @click="showReportsList = true; loadReportsList()"
+          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">
+          📂 Informes Anteriores
+        </button>
+      </div>
     </section>
 
     <!-- ─ Gráfico histórico ──────────────────────────────────────────────── -->
@@ -557,34 +560,6 @@
 
   </main>
 
-  <!-- ── Sección Informes ──────────────────────────────────────────────────── -->
-  <div class="max-w-3xl mx-auto px-4 pb-6" x-show="portfolio">
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Informes</h2>
-      <div class="flex flex-wrap gap-2">
-
-        <!-- Generar Informe -->
-        <button @click="showReportModal = true"
-          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-700 text-white hover:bg-blue-800 transition-colors">
-          📄 Generar Informe
-        </button>
-
-        <!-- Descargar último informe -->
-        <button @click="openLastReport()"
-          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
-          ⬇ Último Informe
-        </button>
-
-        <!-- Informes anteriores -->
-        <button @click="showReportsList = true; loadReportsList()"
-          class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
-          📂 Informes Anteriores
-        </button>
-
-      </div>
-    </div>
-  </div>
-
   <!-- Modal: Generar Informe -->
   <div x-show="showReportModal" x-cloak
        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
@@ -635,7 +610,7 @@
               class="w-full text-left px-3 py-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
               <div class="text-sm font-medium text-gray-700" x-text="r.label"></div>
               <div class="text-xs text-gray-400 mt-0.5"
-                x-text="r.from + ' → ' + r.to + ' · ' + new Date(r.generatedAt).toLocaleDateString('es-AR')">
+                x-text="r.from.split('-').reverse().join('/') + ' → ' + r.to.split('-').reverse().join('/') + ' · ' + new Date(r.generatedAt).toLocaleDateString('es-AR')">
               </div>
             </button>
           </li>
