@@ -609,6 +609,13 @@ function renderHistoryChart(data, moneda, periodo) {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
+      // En mobile, un segundo tap sobre el gráfico cierra el tooltip.
+      onClick(e, elements, chart) {
+        if (chart.tooltip._active?.length > 0) {
+          chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+          chart.update("none");
+        }
+      },
       plugins: {
         legend: {
           position: "top",

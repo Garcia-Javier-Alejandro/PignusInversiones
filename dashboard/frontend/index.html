@@ -82,10 +82,17 @@
         if (this.portfolio) renderChart(getActivosConCash(this.portfolio, this.account), this.chartView, v);
       });
       this.$watch('moneda', v => {
-        if (this.historyData) renderHistoryChart(this.historyData, v, this.periodoHist);
+        // $nextTick: Alpine flushes x-text DOM updates first, then we render
+        // el canvas del historial. Sin esto, en mobile el canvas (trabajo pesado
+        // de JS) puede bloquear el hilo antes de que Alpine actualice el DOM.
+        this.$nextTick(() => {
+          if (this.historyData) renderHistoryChart(this.historyData, v, this.periodoHist);
+        });
       });
       this.$watch('periodoHist', v => {
-        if (this.historyData) renderHistoryChart(this.historyData, this.moneda, v);
+        this.$nextTick(() => {
+          if (this.historyData) renderHistoryChart(this.historyData, this.moneda, v);
+        });
       });
     }
   }"
@@ -149,7 +156,7 @@
         <!-- Toggle ARS / MEP -->
         <button
           @click="moneda = moneda === 'ARS' ? 'MEP' : 'ARS'"
-          class="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
+          class="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors touch-manipulation"
           :class="moneda === 'MEP'
             ? 'bg-emerald-500 text-white'
             : 'bg-sky-500 text-white'"
@@ -232,12 +239,12 @@
 
     <!-- ─ Gráfico histórico ──────────────────────────────────────────────── -->
     <section x-show="portfolio" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3">
+        <h2 class="flex-1 min-w-0 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
           Cartera vs S&P 500 vs Mercado Pago
         </h2>
         <!-- Selector de período -->
-        <div class="flex gap-1">
+        <div class="flex gap-1 flex-shrink-0">
           <button @click="periodoHist = '1m'" class="px-2 py-0.5 text-xs rounded font-medium transition-colors"
             :class="periodoHist === '1m' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'">1M</button>
           <button @click="periodoHist = '3m'" class="px-2 py-0.5 text-xs rounded font-medium transition-colors"
@@ -252,7 +259,7 @@
       <!-- Gráfico: visible cuando hay 2+ snapshots -->
       <div
         x-show="historyData?.snapshots?.length >= 2"
-        class="h-56"
+        class="h-72 sm:h-56"
       >
         <canvas id="chartHistory"></canvas>
       </div>
@@ -293,9 +300,9 @@
 
     <!-- ─ Gráfico de torta (tipo / sector) ───────────────────────────────── -->
     <section x-show="portfolio" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Composición y Rendimiento</h2>
-        <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3">
+        <h2 class="flex-1 min-w-0 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Composición y Rendimiento</h2>
+        <div class="flex items-center gap-2 flex-shrink-0">
 
           <!-- Toggle tipo de gráfico -->
           <div class="flex rounded-lg border border-gray-200 overflow-hidden">
