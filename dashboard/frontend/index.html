@@ -421,6 +421,16 @@
                 </th>
 
                 <th class="text-right px-3 py-2.5 cursor-pointer hover:text-gray-600 select-none"
+                    :class="expandTable ? '' : 'hidden'"
+                    @click="sortBy('ultimo')">
+                  Último
+                  <span class="sort-icon" :class="sortCol === 'ultimo' ? 'active' : ''">
+                    <span x-show="sortCol === 'ultimo' && sortDir === 'asc'">↑</span>
+                    <span x-show="sortCol !== 'ultimo' || sortDir === 'desc'">↓</span>
+                  </span>
+                </th>
+
+                <th class="text-right px-3 py-2.5 cursor-pointer hover:text-gray-600 select-none"
                     @click="sortBy('valorizado')">
                   Valorizado
                   <span class="sort-icon" :class="sortCol === 'valorizado' ? 'active' : ''">
@@ -490,6 +500,10 @@
                   <td class="px-3 py-3 text-right tabular-nums text-gray-700 text-xs" :class="expandTable ? '' : 'hidden'"
                     x-text="activo.titulo?.simbolo === 'CASH' ? '—' : formatARS(activo.ppc)"></td>
 
+                  <!-- Último precio -->
+                  <td class="px-3 py-3 text-right tabular-nums text-gray-700 text-xs" :class="expandTable ? '' : 'hidden'"
+                    x-text="(activo.titulo?.simbolo === 'CASH' || !activo.cantidad) ? '—' : formatARS(activo.valorizado / activo.cantidad)"></td>
+
                   <!-- Valorizado -->
                   <td class="px-3 py-3 text-right tabular-nums font-semibold text-gray-900"
                     x-text="formatValor(activo.valorizado || 0, moneda, mep)"></td>
@@ -510,7 +524,7 @@
 
               <!-- Estado vacío -->
               <tr x-show="!portfolio?.activos?.length">
-                <td :colspan="expandTable ? 7 : 3" class="px-4 py-8 text-center text-gray-400 text-sm">
+                <td :colspan="expandTable ? 8 : 3" class="px-4 py-8 text-center text-gray-400 text-sm">
                   Sin posiciones disponibles.
                 </td>
               </tr>
