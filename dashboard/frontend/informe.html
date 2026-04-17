@@ -205,11 +205,7 @@
 <script>
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const WORKER_URL = (() => {
-  const m = document.cookie.match(/WORKER_URL=([^;]+)/);
-  if (m) return decodeURIComponent(m[1]);
-  return localStorage.getItem("WORKER_URL") || "";
-})();
+const WORKER_URL = "https://pignus-api.garcia-javier-alejandro.workers.dev";
 
 const MONTHS_ES = ["enero","febrero","marzo","abril","mayo","junio",
                    "julio","agosto","septiembre","octubre","noviembre","diciembre"];
@@ -595,12 +591,6 @@ async function init() {
   if (!from || !to) {
     document.getElementById("loading").textContent =
       "Faltan parámetros: ?from=YYYY-MM-DD&to=YYYY-MM-DD";
-    return;
-  }
-
-  if (!WORKER_URL) {
-    document.getElementById("loading").innerHTML =
-      `<div class="error">No se encontró la URL del Worker.<br>Accedé al informe desde el dashboard.</div>`;
     return;
   }
 
