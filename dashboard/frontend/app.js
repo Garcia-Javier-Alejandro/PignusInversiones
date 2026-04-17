@@ -287,6 +287,11 @@ async function loadHistory(alpineState) {
     const data = await fetchJSON(`${WORKER_URL}/api/history`);
     alpineState.historyData = data;
     alpineState.deposits    = data.deposits || [];
+    // Si /api/mep falló, usar el mep más reciente guardado en snapshots como fallback.
+    if (!alpineState.mep) {
+      const snap = [...(data.snapshots || [])].reverse().find(s => s.mep > 1);
+      if (snap) alpineState.mep = snap.mep;
+    }
     renderHistoryChart(data, alpineState.moneda, alpineState.periodoHist);
   } catch (err) {
     console.warn("No se pudo cargar el historial:", err.message);
@@ -483,7 +488,7 @@ function computeHistoryChartData(snapshots, spyPrices, deposits, moneda, periodo
     const mpARS    = mpVcp    && mpCuotas > 0 ? mpCuotas * mpVcp    : null;
 
     const toDisplay = v => v == null ? null
-      : (moneda === "MEP" && mepForDay > 1 ? v / mepForDay : v);
+      : (moneda === "MEP" ? (mepForDay > 1 ? v / mepForDay : null) : v);
 
     labels.push(formatDateLabel(snap.date));
     pignusData.push(toDisplay(snap.totalARS));

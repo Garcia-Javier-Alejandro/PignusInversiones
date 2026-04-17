@@ -25,7 +25,7 @@
       animation: spin 0.8s linear infinite;
     }
     /* Headers de tabla: no romper en varias líneas (flecha junto al texto) */
-    table th { white-space: nowrap; }
+    table th { white-space: nowrap !important; }
   </style>
 
   <script>
@@ -154,7 +154,10 @@
       <div class="flex items-center gap-2">
         <!-- Toggle ARS / MEP -->
         <button
-          @click="moneda = moneda === 'ARS' ? 'MEP' : 'ARS'"
+          @click="
+            if (moneda === 'ARS' && !mep) { showToast('MEP no disponible'); return; }
+            moneda = moneda === 'ARS' ? 'MEP' : 'ARS'
+          "
           class="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors touch-manipulation"
           :class="moneda === 'MEP'
             ? 'bg-emerald-500 text-white'
