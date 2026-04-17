@@ -487,7 +487,7 @@
 
                   <!-- Último precio -->
                   <td class="px-3 py-3 text-right tabular-nums text-gray-700 text-xs" :class="expandTable ? '' : 'hidden'"
-                    x-text="(activo.titulo?.simbolo === 'CASH' || !activo.cantidad) ? '—' : formatARS(activo.valorizado / activo.cantidad)"></td>
+                    x-text="(activo.titulo?.simbolo === 'CASH' || !activo.ppc) ? '—' : formatARS(activo.ppc * (1 + (activo.gananciaPorcentaje || 0) / 100))"></td>
 
                   <!-- Valorizado -->
                   <td class="px-3 py-3 text-right tabular-nums font-semibold text-gray-900"

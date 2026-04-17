@@ -201,8 +201,8 @@ function sortActivos(activos, col, dir) {
     }
     switch (col) {
       case "ppc":       va = a.ppc               || 0; vb = b.ppc               || 0; break;
-      case "ultimo":    va = a.cantidad > 0 ? (a.valorizado || 0) / a.cantidad : 0;
-                        vb = b.cantidad > 0 ? (b.valorizado || 0) / b.cantidad : 0; break;
+      case "ultimo":    va = (a.ppc || 0) * (1 + (a.gananciaPorcentaje || 0) / 100);
+                        vb = (b.ppc || 0) * (1 + (b.gananciaPorcentaje || 0) / 100); break;
       case "valorizado":va = a.valorizado         || 0; vb = b.valorizado         || 0; break;
       case "pct":       va = a.gananciaPorcentaje || 0; vb = b.gananciaPorcentaje || 0; break;
       case "dinero":    va = a.gananciaDinero      || 0; vb = b.gananciaDinero      || 0; break;
