@@ -161,7 +161,7 @@
           class="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors touch-manipulation"
           :class="moneda === 'MEP'
             ? 'bg-emerald-500 text-white'
-            : 'bg-sky-500 text-white'"
+            : 'bg-blue-600 text-white'"
           :title="moneda === 'MEP' ? 'Mostrando en USD MEP — click para ARS' : 'Click para ver en USD MEP'"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -282,22 +282,6 @@
         </p>
       </div>
 
-      <!-- Footer: depósitos + fuente de datos -->
-      <div class="mt-3 pt-3 border-t border-gray-100">
-
-        <!-- Lista de depósitos detectados automáticamente -->
-        <p class="text-xs text-gray-400 mb-1">
-          Depósitos detectados:
-          <span x-show="deposits.length === 0" class="text-gray-300">ninguno aún</span>
-          <template x-for="d in deposits" :key="d.date">
-            <span class="ml-2 bg-gray-100 rounded px-1.5 py-0.5 text-gray-500"
-              :title="d.note || (d.auto ? 'Auto-detectado' : '')"
-              x-text="d.date.slice(8)+'/'+d.date.slice(5,7)+'/'+d.date.slice(0,4) + ' $' + (d.amount/1000000).toFixed(1) + 'M'"></span>
-          </template>
-        </p>
-        <p class="text-xs text-gray-300">Los depósitos y retiros se detectan automáticamente.</p>
-
-      </div>
     </section>
 
     <!-- ─ Gráfico de torta (tipo / sector) ───────────────────────────────── -->
@@ -341,10 +325,10 @@
               ? 'bg-blue-600 text-white'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
           >
-            <span x-text="chartView === 'tipo' ? 'Por tipo' : 'Por sector'"></span>
             <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
             </svg>
+            <span x-text="chartView === 'tipo' ? 'Por tipo' : 'Por sector'"></span>
           </button>
 
         </div>

@@ -461,7 +461,6 @@ function computeHistoryChartData(snapshots, spyPrices, deposits, moneda, periodo
   let lastMpVcp = null;
   let lastDate  = null;
 
-  const labels     = [];
   const pignusData = [];
   const spyData    = [];
   const mpData     = [];
@@ -490,10 +489,10 @@ function computeHistoryChartData(snapshots, spyPrices, deposits, moneda, periodo
     const toDisplay = v => v == null ? null
       : (moneda === "MEP" ? (mepForDay > 1 ? v / mepForDay : null) : v);
 
-    labels.push(formatDateLabel(snap.date));
-    pignusData.push(toDisplay(snap.totalARS));
-    spyData.push(toDisplay(spyARS));
-    mpData.push(toDisplay(mpARS));
+    const ts = new Date(snap.date + "T12:00:00").getTime();
+    pignusData.push({ x: ts, y: toDisplay(snap.totalARS) });
+    spyData.push({ x: ts, y: toDisplay(spyARS) });
+    mpData.push({ x: ts, y: toDisplay(mpARS) });
   }
 
   // Depósitos dentro del rango visible (para anotaciones).
@@ -508,11 +507,11 @@ function computeHistoryChartData(snapshots, spyPrices, deposits, moneda, periodo
     .map(d => {
       const anchorDate = visibleSnapDates.find(sd => sd >= d.date) || visibleSnapDates[visibleSnapDates.length - 1];
       if (!anchorDate) return null;
-      return { ...d, annotationLabel: formatDateLabel(anchorDate) };
+      return { ...d, annotationTs: new Date(anchorDate + "T12:00:00").getTime() };
     })
     .filter(Boolean);
 
-  return labels.length >= 2 ? { labels, pignusData, spyData, mpData, visibleDeposits } : null;
+  return pignusData.length >= 2 ? { pignusData, spyData, mpData, visibleDeposits } : null;
 }
 
 /** Fecha de corte para filtrar snapshots según el período seleccionado. */
@@ -551,14 +550,13 @@ function renderHistoryChart(data, moneda, periodo) {
   // Anotaciones: línea vertical punteada por cada depósito visible
   const annotations = {};
   for (const dep of (computed.visibleDeposits || [])) {
-    const label  = formatDateLabel(dep.date);
     const monto  = dep.amount >= 0
       ? `+$${(dep.amount / 1e6).toFixed(1)}M`
       : `-$${(Math.abs(dep.amount) / 1e6).toFixed(1)}M`;
     annotations[`dep_${dep.date}`] = {
       type:        "line",
-      xMin:        dep.annotationLabel || label,
-      xMax:        dep.annotationLabel || label,
+      xMin:        dep.annotationTs,
+      xMax:        dep.annotationTs,
       borderColor: "#60a5fa",
       borderWidth: 1.5,
       borderDash:  [4, 3],
@@ -579,7 +577,6 @@ function renderHistoryChart(data, moneda, periodo) {
   chartHistory = new Chart(canvas, {
     type: "line",
     data: {
-      labels: computed.labels,
       datasets: [
         {
           label:           "Pignus",
@@ -631,17 +628,30 @@ function renderHistoryChart(data, moneda, periodo) {
         annotation:  { annotations },
         tooltip: {
           callbacks: {
+            title(items) {
+              if (!items.length) return '';
+              return new Date(items[0].parsed.x)
+                .toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" });
+            },
             label(ctx) {
-              if (ctx.raw == null) return null;
-              return ` ${ctx.dataset.label}: ${fmtY(ctx.raw)}`;
+              if (ctx.parsed.y == null) return null;
+              return ` ${ctx.dataset.label}: ${fmtY(ctx.parsed.y)}`;
             },
           },
         },
       },
       scales: {
         x: {
-          ticks: { color: "#9ca3af", font: { size: 10 }, maxTicksLimit: 8 },
-          grid:  { color: "#f3f4f6" },
+          type: "linear",
+          ticks: {
+            color: "#9ca3af",
+            font: { size: 10 },
+            maxTicksLimit: 8,
+            callback(v) {
+              return new Date(v).toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
+            },
+          },
+          grid: { color: "#f3f4f6" },
         },
         y: {
           min:   0,
