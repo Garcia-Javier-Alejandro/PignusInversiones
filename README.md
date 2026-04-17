@@ -226,6 +226,12 @@ El mapa `SECTORES` en `app.js` es hardcodeado. Para un activo nuevo: agregar `S�
 - [ ] **Gráfico histórico normalizado:** opción de ver las curvas indexadas a 100 en el punto inicial del período seleccionado, en lugar de valores absolutos en ARS/USD.
 - [x] **MEP desde AL30/AL30D:** `GET /api/mep` calcula `precio_AL30_ARS / precio_AL30D_USD` vía IOL. El frontend ya no depende de dolarapi.com.
 
+### Mobile / UX — bugs y mejoras detectadas
+- [ ] **Alto del gráfico histórico:** aumentarlo en mobile para que sea legible sin hacer zoom.
+- [ ] **Tooltip persistente al tap:** en mobile el tooltip del gráfico desaparece; permitir fijarlo con un tap y cerrarlo con otro.
+- [ ] **Botones treemap/rueda en mobile:** confirmar que el par de iconos entra dentro del header de la sección en viewports angostos (evitar overflow).
+- [ ] **Toggle ARS/MEP en mobile:** el cambio de moneda no actualiza Total Cartera ni la tabla de posiciones en algunos dispositivos; investigar y corregir la reactividad Alpine en esos contextos.
+
 ### Dashboard — mediano plazo
 - [ ] **Reporte mensual generado automáticamente:** requiere snapshot completo de posiciones. El reporte incluiría: valor inicio/fin de mes, depósitos del período, rendimiento ajustado, performance por posición, atribución por sector, comparación vs benchmarks, efecto moneda.
 - [ ] **Selector de fecha de inicio personalizado** para el cálculo de rendimiento (algunos activos pueden haberse comprado después del primer snapshot).
