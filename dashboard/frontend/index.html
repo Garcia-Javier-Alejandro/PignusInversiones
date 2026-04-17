@@ -24,9 +24,8 @@
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
-    /* Flechas de ordenamiento en headers de tabla */
-    .sort-icon { opacity: 0.3; font-size: 0.65rem; }
-    .sort-icon.active { opacity: 1; }
+    /* Headers de tabla: no romper en varias líneas (flecha junto al texto) */
+    table th { white-space: nowrap; }
   </style>
 
   <script>
