@@ -138,6 +138,19 @@ async function handleHistory(request, env) {
       if (snap.mpVcp) snapshotsChanged = true;
     }
   }
+
+  // Backfill mep en snapshots que no lo tengan (p.ej. guardados fuera de horario de mercado).
+  // Usa el valor cacheado más reciente como aproximación razonable.
+  const mepCache = await kvGet(env, "mep_cache", null);
+  if (mepCache?.mep) {
+    for (const snap of snapshots) {
+      if (snap.mep == null) {
+        snap.mep = mepCache.mep;
+        snapshotsChanged = true;
+      }
+    }
+  }
+
   if (snapshotsChanged) {
     await env.TOKEN_CACHE.put("portfolio_history", JSON.stringify(snapshots));
   }
@@ -236,7 +249,9 @@ async function handleSnapshot(request, env) {
     return jsonResponse({ error: "Invalid data" }, { status: 400, origin: env.ALLOWED_ORIGIN });
   }
 
-  const today   = new Date().toISOString().split("T")[0];
+  // Fecha en zona horaria de Argentina (UTC-3, sin DST). Usar UTC causaría que a las
+  // 23:xx ARG el snapshot quede fechado al día siguiente.
+  const today   = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Argentina/Buenos_Aires" });
   const history = await kvGet(env, "portfolio_history", []);
 
   if (history.some(s => s.date === today)) {
@@ -293,28 +308,39 @@ async function handleMEP(request, env) {
     return jsonResponse(cached, { origin: env.ALLOWED_ORIGIN });
   }
 
-  const token = await getValidToken(env);
-  const [al30, al30d] = await Promise.all([
-    iolGet("/api/v2/cotizaciones/titulos/bCBA/AL30",  token, env),
-    iolGet("/api/v2/cotizaciones/titulos/bCBA/AL30D", token, env),
-  ]);
+  // Fuera del horario de mercado (~17:00-11:00 ARG), IOL puede devolver precios cero
+  // o el endpoint puede fallar. En ese caso devolvemos la caché aunque haya vencido
+  // (stale: true) para que el frontend siempre tenga un MEP disponible.
+  try {
+    const token = await getValidToken(env);
+    const [al30, al30d] = await Promise.all([
+      iolGet("/api/v2/cotizaciones/titulos/bCBA/AL30",  token, env),
+      iolGet("/api/v2/cotizaciones/titulos/bCBA/AL30D", token, env),
+    ]);
 
-  // IOL devuelve "ultimoPrecio" en el objeto cotización
-  const precioARS = al30.ultimoPrecio  ?? al30.precio;
-  const precioUSD = al30d.ultimoPrecio ?? al30d.precio;
+    const precioARS = al30.ultimoPrecio  ?? al30.precio;
+    const precioUSD = al30d.ultimoPrecio ?? al30d.precio;
 
-  if (!precioARS || !precioUSD || precioUSD === 0) {
-    return jsonResponse({ error: "No se pudo calcular MEP" }, { status: 502, origin: env.ALLOWED_ORIGIN });
+    if (!precioARS || !precioUSD || precioUSD === 0) {
+      // Precios fuera de horario — devolver caché anterior si existe
+      if (cached) return jsonResponse({ ...cached, stale: true }, { origin: env.ALLOWED_ORIGIN });
+      return jsonResponse({ error: "Precio AL30/AL30D no disponible" }, { status: 502, origin: env.ALLOWED_ORIGIN });
+    }
+
+    const result = {
+      mep:       precioARS / precioUSD,
+      al30Ars:   precioARS,
+      al30dUsd:  precioUSD,
+      fetchedAt: Date.now(),
+    };
+    await env.TOKEN_CACHE.put("mep_cache", JSON.stringify(result));
+    return jsonResponse(result, { origin: env.ALLOWED_ORIGIN });
+
+  } catch (err) {
+    // IOL caído o error de red — devolver caché aunque esté vencida
+    if (cached) return jsonResponse({ ...cached, stale: true }, { origin: env.ALLOWED_ORIGIN });
+    return jsonResponse({ error: err.message }, { status: 502, origin: env.ALLOWED_ORIGIN });
   }
-
-  const result = {
-    mep:       precioARS / precioUSD,
-    al30Ars:   precioARS,
-    al30dUsd:  precioUSD,
-    fetchedAt: Date.now(),
-  };
-  await env.TOKEN_CACHE.put("mep_cache", JSON.stringify(result));
-  return jsonResponse(result, { origin: env.ALLOWED_ORIGIN });
 }
 
 /**

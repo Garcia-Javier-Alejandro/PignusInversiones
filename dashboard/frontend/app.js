@@ -609,13 +609,8 @@ function renderHistoryChart(data, moneda, periodo) {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
-      // En mobile, un segundo tap sobre el gráfico cierra el tooltip.
-      onClick(e, elements, chart) {
-        if (chart.tooltip._active?.length > 0) {
-          chart.tooltip.setActiveElements([], { x: 0, y: 0 });
-          chart.update("none");
-        }
-      },
+      // touchend en events: el tooltip desaparece al levantar el dedo en mobile.
+      events: ["mousemove", "mouseout", "click", "touchstart", "touchmove", "touchend"],
       plugins: {
         legend: {
           position: "top",
@@ -727,6 +722,7 @@ function renderDonut(activos, view) {
       responsive: true,
       maintainAspectRatio: false,
       layout: { padding: { left: 0 } },
+      events: ["mousemove", "mouseout", "click", "touchstart", "touchmove", "touchend"],
       plugins: {
         legend: {
           position: "right",
@@ -814,6 +810,7 @@ function renderTreemap(activos, view) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      events: ["mousemove", "mouseout", "click", "touchstart", "touchmove", "touchend"],
       plugins: {
         legend:     { display: false },
         datalabels: { display: false },
