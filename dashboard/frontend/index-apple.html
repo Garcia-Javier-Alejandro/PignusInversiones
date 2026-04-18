@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pignus-Inversiones — iOS</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@3.1.0/dist/chartjs-chart-treemap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+  <script>
+    Chart.register(ChartDataLabels);
+    Chart.defaults.color       = '#8e8e93';
+    Chart.defaults.borderColor = 'rgba(60,60,67,0.08)';
+    Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif";
+    Chart.defaults.font.size   = 11;
+  </script>
+  <script src="app.js"></script>
+
+  <!-- MOCK MODE -->
+  <script>
+    window.loadDashboard = function(state) {
+      state.mep       = 1185;
+      state.updatedAt = '17/04/2026 10:30';
+      state.account   = { cuentas: [{ moneda: 'peso_Argentino', total: 15632320, disponible: 450320 }] };
+      state.portfolio = {
+        activos: [
+          { titulo: { simbolo: 'VIST',    descripcion: 'Vista Energy',        tipo: 'CEDEARS'         }, ppc: 42000,  cantidad: 100,    valorizado: 4824000, gananciaPorcentaje:  14.86, gananciaDinero:  624000 },
+          { titulo: { simbolo: 'TZX26',   descripcion: 'Bono CER TZX26',      tipo: 'TitulosPublicos' }, ppc: 87.5,   cantidad: 47172,  valorizado: 4102000, gananciaPorcentaje:  -0.62, gananciaDinero:  -25600 },
+          { titulo: { simbolo: 'MSFT',    descripcion: 'Microsoft Corp',       tipo: 'CEDEARS'         }, ppc: 320000, cantidad: 8,      valorizado: 2744000, gananciaPorcentaje:   7.03, gananciaDinero:  180000 },
+          { titulo: { simbolo: 'GLD',     descripcion: 'SPDR Gold Shares',     tipo: 'CEDEARS'         }, ppc: 85000,  cantidad: 15,     valorizado: 1398000, gananciaPorcentaje:   9.65, gananciaDinero:  123000 },
+          { titulo: { simbolo: 'COPX',    descripcion: 'Global Copper Miners', tipo: 'CEDEARS'         }, ppc: 28000,  cantidad: 30,     valorizado:  930000, gananciaPorcentaje:  10.71, gananciaDinero:   90000 },
+          { titulo: { simbolo: 'URA',     descripcion: 'Global Uranium ETF',   tipo: 'CEDEARS'         }, ppc: 31000,  cantidad: 20,     valorizado:  604000, gananciaPorcentaje:  -2.58, gananciaDinero:  -16000 },
+          { titulo: { simbolo: 'IOLCAMA', descripcion: 'FCI Mercado Pago',     tipo: 'FCI'             }, ppc: 1.0,    cantidad: 485000, valorizado:  580000, gananciaPorcentaje:  19.59, gananciaDinero:   95000 },
+        ]
+      };
+      const deps = [
+        { date: '2026-03-08', amount: 8100000, spyPrice: 492000, mpVcp: 1.000 },
+        { date: '2026-04-10', amount: 4000000, spyPrice: 515000, mpVcp: 1.084 },
+      ];
+      const snapshots = [], spyPrices = [];
+      const start = new Date('2026-03-09T12:00:00');
+      for (let i = 0; i < 38; i++) {
+        const d = new Date(start); d.setDate(d.getDate() + i);
+        const ds = d.toISOString().split('T')[0];
+        const t = i / 37;
+        const wave = Math.sin(t * Math.PI * 4) * 0.035, trend = t * 0.10;
+        const base = d >= new Date('2026-04-10') ? 12100000 : 8100000;
+        snapshots.push({ date: ds, totalARS: Math.round(base * (1 + trend + wave)), mep: 1150 + i * 3, mpVcp: 1.0 * Math.pow(1.003, i) });
+        spyPrices.push({ date: ds, price: Math.round((530 + i * 0.5 + Math.sin(i * 0.6) * 8) * (1150 + i * 3)) });
+      }
+      const historyData = { snapshots, spyPrices, deposits: deps };
+      state.historyData = historyData;
+      state.deposits    = deps;
+      state.loading     = false;
+      setTimeout(() => {
+        renderChart(getActivosConCash(state.portfolio, state.account), state.chartView, state.chartType);
+        renderHistoryChart(historyData, state.moneda, state.periodoHist);
+      }, 80);
+    };
+  </script>
+
+  <style>
+    :root {
+      --bg:          #f2f2f7;
+      --bg-grouped:  #e5e5ea;
+      --surface:     rgba(255,255,255,0.82);
+      --surface-opaque: #ffffff;
+      --label:       #1c1c1e;
+      --label-2:     #3a3a3c;
+      --label-3:     #636366;
+      --label-4:     #8e8e93;
+      --separator:   rgba(60,60,67,0.12);
+      --blue:        #007AFF;
+      --blue-light:  rgba(0,122,255,0.1);
+      --green:       #34C759;
+      --green-light: rgba(52,199,89,0.1);
+      --red:         #FF3B30;
+      --red-light:   rgba(255,59,48,0.1);
+      --orange:      #FF9500;
+      --fill:        rgba(120,120,128,0.12);
+      --fill-2:      rgba(120,120,128,0.08);
+    }
+
+    * {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body { background-color: var(--bg); color: var(--label); }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 2.5rem; height: 2.5rem;
+      border: 3px solid rgba(0,122,255,0.15);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    table th { white-space: nowrap !important; }
+
+    /* Glass card */
+    .glass-card {
+      background: var(--surface);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.6);
+      box-shadow: 0 2px 20px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+    }
+
+    /* Inset grouped style (table) */
+    .inset-card {
+      background: var(--surface-opaque);
+      border-radius: 16px;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.06);
+      overflow: hidden;
+    }
+
+    /* iOS-style section header */
+    .ios-section-header {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--label-4);
+      padding: 0 4px 6px 4px;
+    }
+
+    /* Large number */
+    .large-num {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--label);
+    }
+
+    /* iOS segment control */
+    .segment-ctrl {
+      display: flex;
+      background: var(--fill);
+      border-radius: 9px;
+      padding: 2px;
+      gap: 1px;
+    }
+    .segment-btn {
+      flex: 1;
+      padding: 4px 10px;
+      border-radius: 7px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--label-3);
+      transition: all 0.15s;
+      text-align: center;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+    }
+    .segment-btn.active {
+      background: white;
+      color: var(--label);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.04);
+    }
+
+    /* iOS pill button */
+    .ios-btn-primary {
+      background: var(--blue);
+      color: white;
+      border: none;
+      border-radius: 980px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 8px 18px;
+      cursor: pointer;
+      transition: opacity 0.1s;
+    }
+    .ios-btn-primary:hover { opacity: 0.85; }
+
+    .ios-btn-secondary {
+      background: var(--fill);
+      color: var(--blue);
+      border: none;
+      border-radius: 980px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      padding: 8px 18px;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .ios-btn-secondary:hover { background: var(--fill-2); }
+
+    /* Period pill (small) */
+    .period-pill {
+      padding: 3px 10px;
+      border-radius: 980px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--label-3);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .period-pill.active {
+      background: var(--blue);
+      color: white;
+    }
+    .period-pill:not(.active):hover { background: var(--fill); }
+
+    /* Table rows */
+    tbody tr { border-bottom: 1px solid var(--separator); transition: background 0.1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--fill-2); }
+
+    /* Tipo badges — iOS tinted */
+    .tipo-cedear { background:rgba(0,122,255,0.1);  color:#007AFF; border-radius:6px; font-size:0.65rem; font-weight:600; padding:2px 6px; }
+    .tipo-accion { background:rgba(191,90,242,0.1); color:#AF52DE; border-radius:6px; font-size:0.65rem; font-weight:600; padding:2px 6px; }
+    .tipo-bono   { background:rgba(255,149,0,0.1);  color:#FF9500; border-radius:6px; font-size:0.65rem; font-weight:600; padding:2px 6px; }
+    .tipo-fci    { background:rgba(52,199,89,0.1);  color:#34C759; border-radius:6px; font-size:0.65rem; font-weight:600; padding:2px 6px; }
+    .tipo-other  { background:var(--fill);           color:var(--label-4); border-radius:6px; font-size:0.65rem; font-weight:600; padding:2px 6px; }
+
+    /* Modal sheet */
+    .ios-sheet {
+      background: var(--surface-opaque);
+      border-radius: 20px 20px 0 0;
+      padding: 1.5rem 1.5rem 2rem;
+      width: 100%;
+      box-shadow: 0 -4px 40px rgba(0,0,0,0.12);
+    }
+    .sheet-handle {
+      width: 36px; height: 5px;
+      background: rgba(60,60,67,0.3);
+      border-radius: 3px;
+      margin: 0 auto 1.25rem;
+    }
+
+    input[type="date"] {
+      background: var(--fill);
+      border: none !important;
+      border-radius: 10px;
+      color: var(--label);
+      font-size: 0.9rem;
+      padding: 10px 12px;
+      width: 100%;
+    }
+    input[type="date"]:focus { outline: 2px solid var(--blue); outline-offset: 0; }
+
+    /* Nav bar blur */
+    header {
+      background: rgba(242,242,247,0.85);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+    }
+  </style>
+</head>
+
+<body class="min-h-screen" x-data="{
+    moneda: 'ARS', mep: null, portfolio: null, account: null, loading: true, error: null, stale: false, updatedAt: null,
+    chartView: 'sector', chartType: 'treemap', periodoHist: 'todo', expandTable: false,
+    sortCol: 'valorizado', sortDir: 'desc', historyData: null, deposits: [], mpRateInput: '', toast: null,
+    showReportModal: false, showReportsList: false, reportFrom: '', reportTo: '', reportsList: [],
+    showToast(msg) { this.toast = msg; setTimeout(() => this.toast = null, 3500); },
+    sortBy(col) {
+      if (this.sortCol === col) { this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc'; }
+      else { this.sortCol = col; this.sortDir = ['simbolo','tipo','sector'].includes(col) ? 'asc' : 'desc'; }
+    },
+    rend30d() {
+      if (!this.historyData || !this.portfolio || !this.account) return null;
+      return calcReturn30d(this.historyData.snapshots, this.deposits, calcTotalCartera(this.portfolio, this.account));
+    },
+    init() {
+      loadDashboard(this);
+      this.$watch('chartView', v => { if (this.portfolio) renderChart(getActivosConCash(this.portfolio, this.account), v, this.chartType); });
+      this.$watch('chartType', v => { if (this.portfolio) renderChart(getActivosConCash(this.portfolio, this.account), this.chartView, v); });
+      this.$watch('moneda', v => { this.$nextTick(() => { if (this.historyData) renderHistoryChart(this.historyData, v, this.periodoHist); }); });
+      this.$watch('periodoHist', v => { this.$nextTick(() => { if (this.historyData) renderHistoryChart(this.historyData, this.moneda, v); }); });
+      const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Argentina/Buenos_Aires' });
+      this.reportTo = todayStr;
+      fetch(WORKER_URL + '/api/reports').then(r => r.json()).then(list => { this.reportsList = list || []; this.reportFrom = list?.length ? list[0].to : todayStr; }).catch(() => { this.reportFrom = todayStr; });
+    },
+    reportUrl(from, to) { return 'informe.html?from=' + from + '&to=' + to; },
+    openReport() { if (!this.reportFrom || !this.reportTo) { this.showToast('Seleccioná el rango'); return; } window.open(this.reportUrl(this.reportFrom, this.reportTo), '_blank'); },
+    openLastReport() { if (!this.reportsList.length) { this.showToast('No hay informes'); return; } const l = this.reportsList[0]; window.open(this.reportUrl(l.from, l.to), '_blank'); },
+    async loadReportsList() { try { const r = await fetch(WORKER_URL + '/api/reports'); this.reportsList = await r.json() || []; } catch { this.reportsList = []; } },
+  }">
+
+  <!-- Loading -->
+  <div x-show="loading" class="fixed inset-0 z-50 flex flex-col items-center justify-center" style="background:var(--bg);"
+       x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+    <div class="spinner mb-4"></div>
+    <p style="color:var(--label-4); font-size:0.85rem; font-weight:500;">Actualizando...</p>
+  </div>
+
+  <!-- Toast -->
+  <div x-show="toast" x-text="toast"
+       x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0"
+       x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+       class="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-none px-5 py-3 text-sm font-medium text-white"
+       style="background:rgba(58,58,60,0.9); border-radius:980px; backdrop-filter:blur(20px); box-shadow:0 4px 20px rgba(0,0,0,0.15);"></div>
+
+  <!-- Error -->
+  <div x-show="error && !loading" class="fixed top-0 left-0 right-0 z-40 px-4 py-3 text-sm flex items-center justify-between"
+       style="background:rgba(255,59,48,0.08); border-bottom:1px solid rgba(255,59,48,0.2); color:var(--red);">
+    <span><strong>Error:</strong> <span x-text="error"></span></span>
+    <button @click="error = null" style="color:var(--red);" class="font-bold text-lg">×</button>
+  </div>
+
+  <!-- Stale -->
+  <div x-show="stale && !loading" class="fixed top-0 left-0 right-0 z-40 px-4 py-3 text-sm flex items-center justify-between"
+       style="background:rgba(255,149,0,0.08); border-bottom:1px solid rgba(255,149,0,0.2); color:var(--orange);">
+    <span>IOL sin datos — mostrando última información válida.</span>
+    <button @click="stale = false" class="font-bold text-lg" style="color:var(--orange);">×</button>
+  </div>
+
+  <!-- Header — iOS Nav Bar -->
+  <header class="sticky top-0 z-30 border-b" style="border-color:var(--separator);">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div>
+        <h1 style="font-size:1.1rem; font-weight:700; letter-spacing:-0.02em; color:var(--label);">
+          Pignus Inversiones
+        </h1>
+        <p style="font-size:0.72rem; color:var(--label-4); font-weight:400;" x-show="updatedAt">
+          Actualizado <span x-text="updatedAt"></span>
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button
+          @click="if (moneda === 'ARS' && !mep) { showToast('MEP no disponible'); return; } moneda = moneda === 'ARS' ? 'MEP' : 'ARS'"
+          class="ios-btn-secondary text-sm"
+          :style="moneda === 'MEP' ? 'background:rgba(52,199,89,0.12); color:var(--green);' : ''">
+          <span x-text="moneda"></span>
+          <span x-show="moneda === 'MEP' && mep" x-text="mep ? ' $' + Math.round(mep).toLocaleString('es-AR') : ''"></span>
+        </button>
+        <button @click="loadDashboard($data)" :disabled="loading"
+          class="w-9 h-9 flex items-center justify-center rounded-full transition-colors"
+          style="background:var(--fill);">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" style="color:var(--blue);"
+            :class="loading ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="max-w-3xl mx-auto px-4 py-5 space-y-6" x-show="!loading || portfolio">
+
+    <!-- KPI Cards -->
+    <section x-show="portfolio && account">
+      <p class="ios-section-header">Resumen</p>
+      <div class="grid grid-cols-3 gap-3">
+
+        <div class="glass-card p-4">
+          <p style="font-size:0.72rem; font-weight:500; color:var(--label-4); margin-bottom:6px;">Total</p>
+          <p class="large-num" x-text="formatValor(calcTotalCartera(portfolio, account), moneda, mep)"></p>
+        </div>
+
+        <div class="glass-card p-4">
+          <p style="font-size:0.72rem; font-weight:500; color:var(--label-4); margin-bottom:6px;">Rend. total</p>
+          <p class="large-num"
+            :style="calcTotalReturn(getActivosConCash(portfolio, account), calcTotalCartera(portfolio, account), deposits) >= 0 ? 'color:var(--green)' : 'color:var(--red)'"
+            x-text="formatPct(calcTotalReturn(getActivosConCash(portfolio, account), calcTotalCartera(portfolio, account), deposits))"></p>
+        </div>
+
+        <div class="glass-card p-4">
+          <p style="font-size:0.72rem; font-weight:500; color:var(--label-4); margin-bottom:6px;">Rend. 30d</p>
+          <p class="large-num"
+            :style="rend30d() ? (rend30d().pct >= 0 ? 'color:var(--green)' : 'color:var(--red)') : 'color:var(--label-4)'"
+            x-text="rend30d() ? formatPct(rend30d().pct) : '—'"></p>
+          <p style="font-size:0.68rem; color:var(--label-4); margin-top:4px;" x-show="rend30d()"
+            x-text="rend30d() ? 'desde ' + formatDateLabel(rend30d().fromDate) : ''"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Informes -->
+    <section x-show="portfolio">
+      <p class="ios-section-header">Informes</p>
+      <div class="glass-card p-4 flex flex-wrap gap-2 justify-center">
+        <button @click="showReportModal = true" class="ios-btn-primary">Generar Informe</button>
+        <button @click="openLastReport()" class="ios-btn-secondary">Último Informe</button>
+        <button @click="showReportsList = true; loadReportsList()" class="ios-btn-secondary">Anteriores</button>
+      </div>
+    </section>
+
+    <!-- History chart -->
+    <section x-show="portfolio">
+      <div class="flex items-center justify-between mb-2">
+        <p class="ios-section-header" style="margin-bottom:0;">Cartera vs benchmarks</p>
+        <div class="flex gap-0.5">
+          <template x-for="p in ['1m','3m','6m','todo']" :key="p">
+            <button @click="periodoHist = p" class="period-pill" :class="periodoHist === p ? 'active' : ''" x-text="p.toUpperCase()"></button>
+          </template>
+        </div>
+      </div>
+      <div class="glass-card p-4">
+        <div x-show="historyData?.snapshots?.length >= 2" class="h-72 sm:h-56">
+          <canvas id="chartHistory"></canvas>
+        </div>
+        <div x-show="!historyData || historyData.snapshots?.length < 2"
+             class="flex flex-col items-center justify-center h-44 gap-2">
+          <p style="font-size:0.85rem; color:var(--label-4); font-weight:500;">Acumulando historial</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Composition chart -->
+    <section x-show="portfolio">
+      <div class="flex items-center justify-between mb-2">
+        <p class="ios-section-header" style="margin-bottom:0;">Composición</p>
+        <div class="flex items-center gap-2">
+          <div class="segment-ctrl">
+            <button @click="chartType = 'donut'" class="segment-btn" :class="chartType === 'donut' ? 'active' : ''" title="Torta">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg>
+            </button>
+            <button @click="chartType = 'treemap'" class="segment-btn" :class="chartType === 'treemap' ? 'active' : ''" title="Treemap">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="11" rx="1"/><rect x="13" y="3" width="8" height="5" rx="1"/><rect x="13" y="10" width="8" height="11" rx="1"/><rect x="3" y="16" width="8" height="5" rx="1"/></svg>
+            </button>
+          </div>
+          <div class="segment-ctrl">
+            <button @click="chartView = 'sector'" class="segment-btn" :class="chartView === 'sector' ? 'active' : ''">Sector</button>
+            <button @click="chartView = 'tipo'" class="segment-btn" :class="chartView === 'tipo' ? 'active' : ''">Tipo</button>
+          </div>
+        </div>
+      </div>
+      <div class="glass-card p-4">
+        <div class="h-64"><canvas id="chartPie"></canvas></div>
+        <div x-show="chartType === 'treemap' && chartView === 'sector'" class="mt-3 pt-3" style="border-top:1px solid var(--separator);">
+          <div class="flex items-center gap-2">
+            <span style="font-size:0.7rem; color:var(--label-4); width:2rem; text-align:right;">−10%</span>
+            <div class="flex-1 h-1.5 rounded-full" style="background:linear-gradient(to right, var(--red), #e5e5ea 45%, #e5e5ea 55%, var(--green))"></div>
+            <span style="font-size:0.7rem; color:var(--label-4); width:2rem;">+10%</span>
+          </div>
+          <p style="font-size:0.68rem; color:var(--label-4); text-align:center; margin-top:6px;">Rendimiento del sector desde PPC</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Positions table -->
+    <section x-show="portfolio">
+      <div class="flex items-center justify-between mb-2">
+        <p class="ios-section-header" style="margin-bottom:0;">Posiciones</p>
+        <button @click="expandTable = !expandTable" class="ios-btn-secondary" style="padding:4px 12px; font-size:0.72rem;">
+          <span x-text="expandTable ? 'Colapsar' : 'Expandir'"></span>
+        </button>
+      </div>
+      <div class="inset-card">
+        <div class="overflow-x-auto">
+          <table class="w-full" :class="expandTable ? 'min-w-[700px]' : ''">
+            <thead>
+              <tr style="border-bottom:1px solid var(--separator); background:rgba(242,242,247,0.6);">
+                <th class="text-left px-4 py-2 cursor-pointer select-none" style="font-size:0.68rem; font-weight:600; color:var(--label-4);" @click="sortBy('simbolo')">
+                  Activo <span x-show="sortCol==='simbolo'" style="opacity:0.6;"><span x-show="sortDir==='asc'">↑</span><span x-show="sortDir==='desc'">↓</span></span>
+                </th>
+                <th class="text-left px-3 py-2 cursor-pointer" :class="expandTable?'':'hidden'" style="font-size:0.68rem; font-weight:600; color:var(--label-4);" @click="sortBy('tipo')">Tipo</th>
+                <th class="text-left px-3 py-2 cursor-pointer" :class="expandTable?'':'hidden'" style="font-size:0.68rem; font-weight:600; color:var(--label-4);" @click="sortBy('sector')">Sector</th>
+                <th class="text-right px-3 py-2 cursor-pointer" :class="expandTable?'':'hidden'" style="font-size:0.68rem; font-weight:600; color:var(--label-4);" @click="sortBy('ppc')">PPC</th>
+                <th class="text-right px-3 py-2 cursor-pointer" :class="expandTable?'':'hidden'" style="font-size:0.68rem; font-weight:600; color:var(--label-4);" @click="sortBy('ultimo')">Último</th>
+                <th class="text-right px-3 py-2 cursor-pointer" style="font-size:0.68rem; font-weight:600; color:var(--label-4);" @click="sortBy('valorizado')">
+                  Valorizado <span x-show="sortCol==='valorizado'" style="opacity:0.6;"><span x-show="sortDir==='asc'">↑</span><span x-show="sortDir==='desc'">↓</span></span>
+                </th>
+                <th class="text-right px-3 py-2 cursor-pointer" style="font-size:0.68rem; font-weight:600; color:var(--label-4);" @click="sortBy('pct')">
+                  Rend. % <span x-show="sortCol==='pct'" style="opacity:0.6;"><span x-show="sortDir==='asc'">↑</span><span x-show="sortDir==='desc'">↓</span></span>
+                </th>
+                <th class="text-right px-4 py-2 cursor-pointer" :class="expandTable?'':'hidden'" style="font-size:0.68rem; font-weight:600; color:var(--label-4);" @click="sortBy('dinero')">Rend. $</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="activo in sortActivos(getActivosConCash(portfolio, account), sortCol, sortDir)" :key="activo.titulo?.simbolo || activo.simbolo">
+                <tr>
+                  <td class="px-4 py-3">
+                    <div style="font-size:0.9rem; font-weight:600; color:var(--label);" x-text="activo.titulo?.simbolo || activo.simbolo || '?'"></div>
+                    <div class="truncate max-w-[140px]" style="font-size:0.7rem; color:var(--label-4); margin-top:1px;" x-text="activo.titulo?.descripcion || ''"></div>
+                  </td>
+                  <td class="px-3 py-3" :class="expandTable?'':'hidden'">
+                    <span :class="{'tipo-cedear':getTipo(activo)==='CEDEARs','tipo-accion':getTipo(activo)==='Acciones','tipo-bono':getTipo(activo)==='Bonos','tipo-fci':getTipo(activo)==='FCI','tipo-other':!['CEDEARs','Acciones','Bonos','FCI'].includes(getTipo(activo))}" x-text="getTipo(activo)"></span>
+                  </td>
+                  <td class="px-3 py-3" :class="expandTable?'':'hidden'" style="font-size:0.78rem; color:var(--label-3);" x-text="getSector(activo)"></td>
+                  <td class="px-3 py-3 text-right tabular-nums" :class="expandTable?'':'hidden'" style="font-size:0.78rem; color:var(--label-3);" x-text="activo.titulo?.simbolo==='CASH'?'—':formatARS(activo.ppc)"></td>
+                  <td class="px-3 py-3 text-right tabular-nums" :class="expandTable?'':'hidden'" style="font-size:0.78rem; color:var(--label-3);" x-text="(activo.titulo?.simbolo==='CASH'||!activo.ppc)?'—':formatARS(activo.ppc*(1+(activo.gananciaPorcentaje||0)/100))"></td>
+                  <td class="px-3 py-3 text-right tabular-nums font-semibold" style="font-size:0.85rem; color:var(--label);" x-text="formatValor(activo.valorizado||0, moneda, mep)"></td>
+                  <td class="px-3 py-3 text-right tabular-nums font-semibold" style="font-size:0.85rem;"
+                    :style="(activo.gananciaPorcentaje||0)>=0?'color:var(--green)':'color:var(--red)'"
+                    x-text="activo.titulo?.simbolo==='CASH'?'—':formatPct(activo.gananciaPorcentaje)"></td>
+                  <td class="px-4 py-3 text-right tabular-nums font-semibold" :class="expandTable?'':'hidden'" style="font-size:0.85rem;"
+                    :style="(activo.gananciaDinero||0)>=0?'color:var(--green)':'color:var(--red)'"
+                    x-text="activo.titulo?.simbolo==='CASH'?'—':formatValor(activo.gananciaDinero||0, moneda, mep)"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal: Generar Informe — iOS bottom sheet -->
+  <div x-show="showReportModal" x-cloak class="fixed inset-0 z-50 flex flex-col justify-end" style="background:rgba(0,0,0,0.4);"
+       @keydown.escape.window="showReportModal = false" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+    <div class="ios-sheet" @click.stop>
+      <div class="sheet-handle"></div>
+      <h3 style="font-size:1.05rem; font-weight:700; color:var(--label); margin-bottom:1.25rem; text-align:center;">Generar Informe</h3>
+      <div class="space-y-3">
+        <div>
+          <label style="font-size:0.72rem; font-weight:600; color:var(--label-4); display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.04em;">Desde</label>
+          <input type="date" x-model="reportFrom">
+        </div>
+        <div>
+          <label style="font-size:0.72rem; font-weight:600; color:var(--label-4); display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.04em;">Hasta</label>
+          <input type="date" x-model="reportTo">
+        </div>
+      </div>
+      <div class="flex gap-3 mt-6">
+        <button @click="showReportModal = false" class="ios-btn-secondary flex-1" style="text-align:center; padding:12px;">Cancelar</button>
+        <button @click="openReport(); showReportModal = false" class="ios-btn-primary flex-1" style="text-align:center; padding:12px;">Generar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Informes Anteriores -->
+  <div x-show="showReportsList" x-cloak class="fixed inset-0 z-50 flex flex-col justify-end" style="background:rgba(0,0,0,0.4);"
+       @keydown.escape.window="showReportsList = false">
+    <div class="ios-sheet" @click.stop>
+      <div class="sheet-handle"></div>
+      <div class="flex justify-between items-center mb-4">
+        <h3 style="font-size:1.05rem; font-weight:700; color:var(--label);">Informes anteriores</h3>
+        <button @click="showReportsList = false" class="ios-btn-secondary" style="padding:4px 12px; font-size:0.8rem;">Cerrar</button>
+      </div>
+      <div x-show="!reportsList.length" class="text-center py-6" style="color:var(--label-4); font-size:0.85rem;">Sin informes generados.</div>
+      <ul class="space-y-1 max-h-64 overflow-y-auto">
+        <template x-for="r in reportsList" :key="r.id">
+          <li>
+            <button @click="window.open(reportUrl(r.from, r.to)); showReportsList = false"
+              class="w-full text-left px-4 py-3 transition-colors"
+              style="border-radius:12px; background:var(--fill-2);"
+              onmouseover="this.style.background='var(--fill)'" onmouseout="this.style.background='var(--fill-2)'">
+              <div style="font-size:0.88rem; font-weight:600; color:var(--label);" x-text="r.label"></div>
+              <div style="font-size:0.72rem; color:var(--label-4); margin-top:2px;" x-text="r.from.split('-').reverse().join('/') + ' → ' + r.to.split('-').reverse().join('/') + ' · ' + new Date(r.generatedAt).toLocaleDateString('es-AR')"></div>
+            </button>
+          </li>
+        </template>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="max-w-3xl mx-auto px-4 py-8 text-center">
+    <p style="font-size:0.72rem; color:var(--label-4);">Hecho por Javi · 2026</p>
+    <p style="font-size:0.68rem; color:#c7c7cc; margin-top:4px;">IOL · SPY: Yahoo Finance · FCI: argentinadatos.com</p>
+  </footer>
+
+</body>
+</html>
