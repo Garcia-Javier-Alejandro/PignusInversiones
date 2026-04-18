@@ -49,9 +49,9 @@
 
     /* Section label — WSJ style */
     .section-label {
-      font-size: 0.65rem;
+      font-size: 0.9rem;
       font-weight: 700;
-      letter-spacing: 0.14em;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--ink-3);
     }
@@ -154,7 +154,7 @@
     x-transition:leave-end="opacity-0"
   >
     <div class="spinner mb-4"></div>
-    <p class="section-label" style="font-size:0.7rem;">Cargando portafolio...</p>
+    <p class="section-label">Cargando portafolio...</p>
   </div>
 
   <!-- ── Toast ────────────────────────────────────────────────────────────── -->
@@ -167,7 +167,7 @@
     x-transition:leave="transition ease-in duration-150"
     x-transition:leave-start="opacity-100"
     x-transition:leave-end="opacity-0"
-    class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 text-sm px-5 py-3 rounded-xl shadow-lg pointer-events-none"
+    class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 text-base px-5 py-3 rounded-xl shadow-lg pointer-events-none"
     style="background:var(--ink); color:#f5f0e8;"
   ></div>
 
@@ -196,7 +196,7 @@
     <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
 
       <div>
-        <h1 class="title-serif" style="font-size:1.25rem; font-weight:700; color:var(--ink); letter-spacing:-0.01em; line-height:1.1;">
+        <h1 class="title-serif" style="font-size:1.9rem; font-weight:700; color:var(--ink); letter-spacing:-0.01em; line-height:1.1;">
           Pignus-Inversiones
         </h1>
         <p class="section-label mt-0.5" x-show="updatedAt">
@@ -211,7 +211,7 @@
             if (moneda === 'ARS' && !mep) { showToast('MEP no disponible'); return; }
             moneda = moneda === 'ARS' ? 'MEP' : 'ARS'
           "
-          class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors touch-manipulation"
+          class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-base font-semibold transition-colors touch-manipulation"
           :style="moneda === 'MEP'
             ? 'background:rgba(26,107,42,0.12); color:var(--green); border:1.5px solid rgba(26,107,42,0.3);'
             : 'background:rgba(29,78,216,0.10); color:var(--blue); border:1.5px solid rgba(29,78,216,0.25);'"
@@ -254,14 +254,14 @@
       <!-- Total cartera -->
       <div class="rounded-xl p-4" style="background:#fff; border:1.5px solid var(--border);">
         <p class="section-label mb-2">Total cartera</p>
-        <p class="font-bold leading-tight tabular-nums" style="font-size:1.25rem; color:var(--ink);"
+        <p class="font-bold leading-tight tabular-nums" style="font-size:1.9rem; color:var(--ink);"
           x-text="formatValor(calcTotalCartera(portfolio, account), moneda, mep)"></p>
       </div>
 
       <!-- Rendimiento total -->
       <div class="rounded-xl p-4" style="background:#fff; border:1.5px solid var(--border);">
         <p class="section-label mb-2">Rend. total</p>
-        <p class="font-bold leading-tight tabular-nums" style="font-size:1.25rem;"
+        <p class="font-bold leading-tight tabular-nums" style="font-size:1.9rem;"
           :style="calcTotalReturn(getActivosConCash(portfolio, account), calcTotalCartera(portfolio, account), deposits) >= 0 ? 'color:var(--green)' : 'color:var(--red)'"
           x-text="formatPct(calcTotalReturn(getActivosConCash(portfolio, account), calcTotalCartera(portfolio, account), deposits))"></p>
       </div>
@@ -269,10 +269,10 @@
       <!-- Rendimiento 30d -->
       <div class="rounded-xl p-4" style="background:#fff; border:1.5px solid var(--border);">
         <p class="section-label mb-2">Rend. 30d</p>
-        <p class="font-bold leading-tight tabular-nums" style="font-size:1.25rem;"
+        <p class="font-bold leading-tight tabular-nums" style="font-size:1.9rem;"
           :style="rend30d() ? (rend30d().pct >= 0 ? 'color:var(--green)' : 'color:var(--red)') : 'color:var(--border-mid)'"
           x-text="rend30d() ? formatPct(rend30d().pct) : '—'"></p>
-        <p class="section-label mt-1 leading-tight" style="font-size:0.6rem; letter-spacing:0.06em; text-transform:none;"
+        <p class="section-label mt-1 leading-tight" style="font-size:0.85rem; letter-spacing:0.04em; text-transform:none;"
            x-show="rend30d()" x-text="rend30d() ? 'desde ' + formatDateLabel(rend30d().fromDate) : ''"></p>
       </div>
 
@@ -287,7 +287,7 @@
         <div class="flex gap-1 flex-shrink-0">
           <template x-for="p in ['1m','3m','6m','todo']" :key="p">
             <button @click="periodoHist = p"
-              class="px-3 py-1 text-xs font-semibold rounded-lg transition-colors"
+              class="px-3 py-1 text-sm font-semibold rounded-lg transition-colors"
               :style="periodoHist === p
                 ? 'background:var(--ink); color:#f5f0e8;'
                 : 'background:var(--cream); color:var(--ink-3); border:1px solid var(--border);'"
@@ -307,8 +307,8 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
               d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
           </svg>
-          <p class="font-semibold" style="color:var(--ink-3);">Acumulando historial</p>
-          <p class="text-sm" style="color:var(--border-mid); max-width:20rem;">
+          <p class="text-base font-semibold" style="color:var(--ink-3);">Acumulando historial</p>
+          <p class="text-base" style="color:var(--border-mid); max-width:20rem;">
             El gráfico aparece a partir del segundo día de uso.
             <span x-show="historyData?.snapshots?.length === 1">Ya tenés 1 snapshot guardado.</span>
           </p>
@@ -349,7 +349,7 @@
           <!-- Toggle tipo / sector -->
           <button
             @click="chartView = chartView === 'tipo' ? 'sector' : 'tipo'"
-            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors"
             :style="chartView === 'sector'
               ? 'background:var(--ink); color:#f5f0e8;'
               : 'background:var(--cream); color:var(--ink-2); border:1.5px solid var(--border);'"
@@ -369,12 +369,12 @@
         <div x-show="chartType === 'treemap' && chartView === 'sector'"
              class="mt-3 pt-3" style="border-top:1px solid var(--border);">
           <div class="flex items-center gap-2">
-            <span class="text-xs tabular-nums" style="color:var(--ink-3); width:2.5rem; text-align:right;">−10%</span>
+            <span class="text-sm tabular-nums" style="color:var(--ink-3); width:2.5rem; text-align:right;">−10%</span>
             <div class="flex-1 h-1.5 rounded-full"
                  style="background:linear-gradient(to right, #c23b22, #c8bfa8 45%, #c8bfa8 55%, #1a6b2a)"></div>
-            <span class="text-xs tabular-nums" style="color:var(--ink-3); width:2.5rem;">+10%</span>
+            <span class="text-sm tabular-nums" style="color:var(--ink-3); width:2.5rem;">+10%</span>
           </div>
-          <p class="text-xs text-center mt-1" style="color:var(--border-mid);">Rendimiento del sector desde el PPC</p>
+          <p class="text-sm text-center mt-1" style="color:var(--border-mid);">Rendimiento del sector desde el PPC</p>
         </div>
       </div>
     </section>
@@ -384,7 +384,7 @@
       <div class="flex items-center justify-between mb-3">
         <h2 class="section-label">Posiciones</h2>
         <button @click="expandTable = !expandTable"
-          class="flex items-center gap-1 text-xs font-semibold transition-colors px-3 py-1.5 rounded-lg"
+          class="flex items-center gap-1 text-sm font-semibold transition-colors px-3 py-1.5 rounded-lg"
           style="color:var(--ink-2); background:var(--cream); border:1.5px solid var(--border);">
           <span x-text="expandTable ? 'Colapsar' : 'Expandir'"></span>
           <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 transition-transform duration-200"
@@ -486,16 +486,16 @@
 
                   <!-- Activo -->
                   <td class="px-4 py-3.5">
-                    <div class="font-bold" style="font-size:0.95rem; color:var(--ink);"
+                    <div class="font-bold" style="font-size:1.1rem; color:var(--ink);"
                       x-text="activo.titulo?.simbolo || activo.simbolo || '?'"></div>
-                    <div class="truncate max-w-[140px] mt-0.5" style="font-size:0.75rem; color:var(--ink-3);"
+                    <div class="truncate max-w-[140px] mt-0.5" style="font-size:1rem; color:var(--ink-3);"
                       x-text="activo.titulo?.descripcion || ''"></div>
                   </td>
 
                   <!-- Tipo -->
                   <td class="px-3 py-3.5" :class="expandTable ? '' : 'hidden'">
                     <span
-                      class="text-xs px-1.5 py-0.5 rounded font-semibold whitespace-nowrap"
+                      class="text-sm px-2 py-0.5 rounded font-semibold whitespace-nowrap"
                       :class="{
                         'tipo-cedear': getTipo(activo) === 'CEDEARs',
                         'tipo-accion': getTipo(activo) === 'Acciones',
@@ -508,32 +508,32 @@
                   </td>
 
                   <!-- Sector -->
-                  <td class="px-3 py-3.5 text-sm" style="color:var(--ink-2);"
+                  <td class="px-3 py-3.5 text-base" style="color:var(--ink-2);"
                       :class="expandTable ? '' : 'hidden'"
                       x-text="getSector(activo)"></td>
 
                   <!-- PPC -->
-                  <td class="px-3 py-3.5 text-right tabular-nums text-sm" style="color:var(--ink-3);"
+                  <td class="px-3 py-3.5 text-right tabular-nums text-base" style="color:var(--ink-3);"
                       :class="expandTable ? '' : 'hidden'"
                       x-text="activo.titulo?.simbolo === 'CASH' ? '—' : formatARS(activo.ppc)"></td>
 
                   <!-- Último precio -->
-                  <td class="px-3 py-3.5 text-right tabular-nums text-sm" style="color:var(--ink-3);"
+                  <td class="px-3 py-3.5 text-right tabular-nums text-base" style="color:var(--ink-3);"
                       :class="expandTable ? '' : 'hidden'"
                       x-text="(activo.titulo?.simbolo === 'CASH' || !activo.ppc) ? '—' : formatARS(activo.ppc * (1 + (activo.gananciaPorcentaje || 0) / 100))"></td>
 
                   <!-- Valorizado -->
-                  <td class="px-3 py-3.5 text-right tabular-nums font-bold" style="font-size:0.95rem; color:var(--ink);"
+                  <td class="px-3 py-3.5 text-right tabular-nums font-bold" style="font-size:1.1rem; color:var(--ink);"
                       x-text="formatValor(activo.valorizado || 0, moneda, mep)"></td>
 
                   <!-- Rend % -->
-                  <td class="px-3 py-3.5 text-right tabular-nums font-bold" style="font-size:0.95rem;"
+                  <td class="px-3 py-3.5 text-right tabular-nums font-bold" style="font-size:1.1rem;"
                       :style="(activo.gananciaPorcentaje || 0) >= 0 ? 'color:var(--green)' : 'color:var(--red)'"
                       x-text="activo.titulo?.simbolo === 'CASH' ? '—' : formatPct(activo.gananciaPorcentaje)">
                   </td>
 
                   <!-- Rend $ -->
-                  <td class="px-4 py-3.5 text-right tabular-nums font-bold text-sm"
+                  <td class="px-4 py-3.5 text-right tabular-nums font-bold text-base"
                       :class="expandTable ? '' : 'hidden'"
                       :style="(activo.gananciaDinero || 0) >= 0 ? 'color:var(--green)' : 'color:var(--red)'"
                       x-text="activo.titulo?.simbolo === 'CASH' ? '—' : formatValor(activo.gananciaDinero || 0, moneda, mep)">
@@ -543,7 +543,7 @@
 
               <!-- Estado vacío -->
               <tr x-show="!portfolio?.activos?.length">
-                <td :colspan="expandTable ? 8 : 3" class="px-4 py-10 text-center text-sm" style="color:var(--ink-3);">
+                <td :colspan="expandTable ? 8 : 3" class="px-4 py-10 text-center text-base" style="color:var(--ink-3);">
                   Sin posiciones disponibles.
                 </td>
               </tr>
@@ -557,8 +557,8 @@
 
   <!-- ── Footer ────────────────────────────────────────────────────────────── -->
   <footer class="max-w-3xl mx-auto px-4 py-8 text-center" style="border-top:1px solid var(--border); margin-top:1rem;">
-    <p class="text-xs" style="color:var(--ink-3);">Hecho por Javi con ☕ en 2026</p>
-    <p class="text-xs mt-1" style="color:var(--border-mid);">Datos: IOL (InvertirOnLine) · SPY: Yahoo Finance · FCI: argentinadatos.com</p>
+    <p class="text-sm" style="color:var(--ink-3);">Hecho por Javi con ☕ en 2026</p>
+    <p class="text-sm mt-1" style="color:var(--border-mid);">Datos: IOL (InvertirOnLine) · SPY: Yahoo Finance · FCI: argentinadatos.com</p>
   </footer>
 
 </body>
