@@ -567,7 +567,7 @@ function renderHistoryChart(data, moneda, periodo) {
         yAdjust:         6,
         backgroundColor: "rgba(96,165,250,0.12)",
         color:           "#3b82f6",
-        font:            { size: 9, weight: "bold" },
+        font:            { size: 13, weight: "bold" },
         padding:         { x: 4, y: 2 },
         borderRadius:    3,
       },
@@ -618,7 +618,7 @@ function renderHistoryChart(data, moneda, periodo) {
           position: "top",
           labels: {
             color: "#374151",
-            font: { size: 11 },
+            font: { size: 14 },
             padding: 16,
             usePointStyle: true,
             pointStyle:    "line",
@@ -645,7 +645,7 @@ function renderHistoryChart(data, moneda, periodo) {
           type: "linear",
           ticks: {
             color: "#9ca3af",
-            font: { size: 10 },
+            font: { size: 13 },
             maxTicksLimit: 8,
             callback(v) {
               const d = new Date(v);
@@ -656,7 +656,7 @@ function renderHistoryChart(data, moneda, periodo) {
         },
         y: {
           min:   0,
-          ticks: { color: "#9ca3af", font: { size: 10 }, callback: fmtY },
+          ticks: { color: "#9ca3af", font: { size: 13 }, callback: fmtY },
           grid:  { color: "#f3f4f6" },
         },
       },
@@ -742,7 +742,7 @@ function renderDonut(activos, view) {
       plugins: {
         legend: {
           position: "right",
-          labels: { color: "#374151", font: { size: 10 }, padding: 10, boxWidth: 10, maxWidth: 160 },
+          labels: { color: "#374151", font: { size: 14 }, padding: 10, boxWidth: 12, maxWidth: 200 },
         },
         tooltip: {
           callbacks: {
@@ -755,7 +755,7 @@ function renderDonut(activos, view) {
         },
         datalabels: {
           color: "#fff",
-          font: { size: 11, weight: "bold" },
+          font: { size: 14, weight: "bold" },
           formatter(value, ctx) {
             const total = ctx.dataset.data.reduce((s, v) => s + v, 0);
             const pct   = total > 0 ? (value / total) * 100 : 0;
@@ -811,7 +811,7 @@ function renderTreemap(activos, view) {
             return [d.label, perfStr];
           },
           color:     ["#fff", "#ffffffdd"],
-          font:      [{ size: 11, weight: "bold" }, { size: 10 }],
+          font:      [{ size: 14, weight: "bold" }, { size: 13 }],
           hoverColor:["#fff", "#ffffffdd"],
           align: "center",
           position: "middle",
