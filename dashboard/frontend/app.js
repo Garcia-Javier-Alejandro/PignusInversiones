@@ -246,12 +246,25 @@ function calcReturn30d(snapshots, deposits, totalCartera) {
 
   if (!base.totalARS || base.totalARS <= 0) return null;
 
-  const depositsInPeriod = (deposits || [])
-    .filter(d => d.date > base.date)
-    .reduce((s, d) => s + (d.amount || 0), 0);
+  const baseDate  = new Date(base.date + "T12:00:00");
+  const totalDays = (Date.now() - baseDate.getTime()) / 86_400_000;
+
+  const periodDeposits = (deposits || []).filter(d => d.date > base.date);
+  const totalCF        = periodDeposits.reduce((s, d) => s + (d.amount || 0), 0);
+
+  // Modified Dietz: pondera cada depósito por la fracción del período que le queda
+  // W_i = (días_totales − días_desde_inicio_a_depósito) / días_totales
+  const weightedCF = periodDeposits.reduce((s, d) => {
+    const daysElapsed = (new Date(d.date + "T12:00:00") - baseDate) / 86_400_000;
+    const w = totalDays > 0 ? (totalDays - daysElapsed) / totalDays : 0;
+    return s + w * (d.amount || 0);
+  }, 0);
+
+  const numerator   = totalCartera - base.totalARS - totalCF;
+  const denominator = base.totalARS + weightedCF;
 
   return {
-    pct:      (totalCartera - base.totalARS - depositsInPeriod) / base.totalARS * 100,
+    pct:      denominator > 0 ? (numerator / denominator) * 100 : null,
     fromDate: base.date,
   };
 }
