@@ -54,6 +54,11 @@
     .table-scroll::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
     .table-scroll { scrollbar-width: auto; scrollbar-color: var(--border-mid) var(--cream); }
 
+    /* Filas alternadas */
+    .positions-table tbody tr:nth-child(odd)  { background-color: #fff; }
+    .positions-table tbody tr:nth-child(even) { background-color: var(--cream); }
+    .positions-table tbody tr:hover           { background-color: var(--cream-hover) !important; }
+
     /* Section label — WSJ style */
     .section-label {
       font-size: 0.9rem;
@@ -205,16 +210,12 @@
     <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
 
       <div>
-        <h1 class="title-serif" style="font-size:1.9rem; font-weight:700; color:var(--ink); letter-spacing:-0.01em; line-height:1.1;">
-          Pignus-Inversiones
-        </h1>
-        <p class="section-label mt-0.5" x-show="updatedAt">
+        <img src="Logo_Pignus.webp" alt="Pignus-Inversiones"
+             style="height:2.4rem; width:auto; max-width:8rem; display:block;">
+        <p class="section-label mt-1" x-show="updatedAt" style="font-size:0.75rem;">
           Actualizado: <span x-text="updatedAt" style="color:var(--ink-2);"></span>
         </p>
       </div>
-
-      <img src="Logo_Pignus.webp" alt="Pignus" class="flex-shrink-0"
-           style="height:2.4rem; width:auto; max-width:7rem;">
 
       <div class="flex items-center gap-2">
         <!-- Toggle ARS / MEP -->
@@ -266,7 +267,7 @@
       <!-- Total cartera -->
       <div class="rounded-xl p-4 text-center" style="background:#fff; border:1.5px solid var(--border);">
         <p class="section-label mb-2">Total cartera</p>
-        <p class="font-bold leading-tight tabular-nums" style="font-size:1.3rem; color:var(--ink);"
+        <p class="font-bold leading-tight tabular-nums" style="font-size:1.3rem; color:var(--ink); text-align:center;"
           x-text="formatValor(calcTotalCartera(portfolio, account), moneda, mep)"></p>
       </div>
 
@@ -426,7 +427,7 @@
 
       <div class="rounded-xl overflow-hidden" style="background:#fff; border:1.5px solid var(--border);">
         <div class="overflow-x-auto table-scroll">
-          <table class="w-full" :class="expandTable ? 'min-w-[700px]' : ''">
+          <table class="positions-table w-full" :class="expandTable ? 'min-w-[700px]' : ''">
 
             <!-- Header -->
             <thead>
@@ -509,9 +510,7 @@
                 x-for="activo in sortActivos(getActivosConCash(portfolio, account), sortCol, sortDir)"
                 :key="activo.titulo?.simbolo || activo.simbolo"
               >
-                <tr class="transition-colors" style="border-bottom:1px solid var(--border);"
-                    onmouseover="this.style.background='var(--cream)'"
-                    onmouseout="this.style.background='transparent'">
+                <tr class="transition-colors" style="border-bottom:1px solid var(--border);">
 
                   <!-- Activo -->
                   <td class="px-4 py-3.5">
