@@ -47,6 +47,13 @@
 
     table th { white-space: nowrap !important; }
 
+    /* Scrollbar más visible en la tabla de posiciones */
+    .table-scroll::-webkit-scrollbar { height: 8px; }
+    .table-scroll::-webkit-scrollbar-track { background: var(--cream); border-radius: 4px; }
+    .table-scroll::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
+    .table-scroll::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
+    .table-scroll { scrollbar-width: auto; scrollbar-color: var(--border-mid) var(--cream); }
+
     /* Section label — WSJ style */
     .section-label {
       font-size: 0.9rem;
@@ -104,6 +111,7 @@
     sortDir: 'desc',
     historyData: null,
     histInfo: false,
+    treemapInfo: false,
     deposits: [],
     mpRateInput: '',
     toast: null,
@@ -196,13 +204,17 @@
   <header class="sticky top-0 z-30" style="background:#fff; border-bottom:2px solid var(--border);">
     <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
 
-      <div>
-        <h1 class="title-serif" style="font-size:1.9rem; font-weight:700; color:var(--ink); letter-spacing:-0.01em; line-height:1.1;">
-          Pignus-Inversiones
-        </h1>
-        <p class="section-label mt-0.5" x-show="updatedAt">
-          Actualizado: <span x-text="updatedAt" style="color:var(--ink-2);"></span>
-        </p>
+      <div class="flex items-center gap-3">
+        <img src="Logo_Pignus.webp" alt="Pignus" class="rounded-lg object-contain flex-shrink-0"
+             style="width:2.8rem; height:2.8rem;">
+        <div>
+          <h1 class="title-serif" style="font-size:1.9rem; font-weight:700; color:var(--ink); letter-spacing:-0.01em; line-height:1.1;">
+            Pignus-Inversiones
+          </h1>
+          <p class="section-label mt-0.5" x-show="updatedAt">
+            Actualizado: <span x-text="updatedAt" style="color:var(--ink-2);"></span>
+          </p>
+        </div>
       </div>
 
       <div class="flex items-center gap-2">
@@ -385,8 +397,14 @@
             <div class="flex-1 h-1.5 rounded-full"
                  style="background:linear-gradient(to right, #c23b22, #c8bfa8 45%, #c8bfa8 55%, #1a6b2a)"></div>
             <span class="text-sm tabular-nums" style="color:var(--ink-3); width:2.5rem;">+10%</span>
+            <button @click.stop="treemapInfo = !treemapInfo"
+              class="w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0 transition-colors"
+              :style="treemapInfo ? 'background:var(--blue); color:#fff;' : 'background:var(--border); color:var(--ink-2);'"
+              title="Información sobre el treemap">i</button>
           </div>
-          <p class="text-sm text-center mt-1" style="color:var(--border-mid);">Rendimiento del sector desde el PPC</p>
+          <div x-show="treemapInfo" x-transition class="mt-2 text-sm" style="color:var(--ink-2);">
+            El área del sector indica el porcentaje de la cartera; Rendimiento del sector desde el Precio Promedio de Compra.
+          </div>
         </div>
       </div>
     </section>
@@ -408,7 +426,7 @@
       </div>
 
       <div class="rounded-xl overflow-hidden" style="background:#fff; border:1.5px solid var(--border);">
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto table-scroll">
           <table class="w-full" :class="expandTable ? 'min-w-[700px]' : ''">
 
             <!-- Header -->
