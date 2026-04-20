@@ -14,17 +14,17 @@ const SECTORES = {
   TZX26:   "Renta fija ajustable",
   // Oro
   GLD:     "Oro",
-  // Liquidez
+  // Liquidez (efectivo; los FCI quedan mapeados a "Liquidez" en getSector)
   IOLCAMA: "Liquidez",
   CASH:    "Liquidez",
   // Finanzas
   GGAL:    "Finanzas",
   NU:      "Finanzas",
-  // Hidrocarburos
-  VIST:    "Hidrocarburos",
-  XOM:     "Hidrocarburos",
-  XLE:     "Hidrocarburos",
-  SLB:     "Hidrocarburos",
+  // Oil & Gas
+  VIST:    "Oil&Gas",
+  XOM:     "Oil&Gas",
+  XLE:     "Oil&Gas",
+  SLB:     "Oil&Gas",
   // Tecnología
   ASML:    "Tecnología",
   MELI:    "Tecnología",
@@ -36,6 +36,8 @@ const SECTORES = {
   SPY:     "Mercado USA",
   // Salud
   XLV:     "Salud",
+  // Agro
+  ADGO:    "Agro",
 };
 
 // ─── Normalización de tipos IOL → display ─────────────────────────────────────
@@ -79,6 +81,9 @@ const PALETA_SECTORES = [
 
 let chartPie     = null;
 let chartHistory = null;
+let _histLastTouchTs    = 0;
+let _histTooltipDismiss = false;
+let _histListenerAdded  = false;
 
 // ─── Función principal ────────────────────────────────────────────────────────
 
@@ -175,6 +180,8 @@ function getActivosConCash(portfolio, account) {
 
 function getSector(activo) {
   const simbolo = activo.titulo?.simbolo || activo.simbolo || "";
+  // FCI son instrumentos de liquidez en la vista por sector
+  if (getTipo(activo) === "FCI") return "Liquidez";
   return SECTORES[simbolo] || "Otros";
 }
 
@@ -574,6 +581,14 @@ function renderHistoryChart(data, moneda, periodo) {
     };
   }
 
+  if (!_histListenerAdded) {
+    canvas.addEventListener('touchstart', () => {
+      _histTooltipDismiss = (chartHistory?.tooltip._active?.length ?? 0) > 0;
+      _histLastTouchTs = Date.now();
+    }, { passive: true });
+    _histListenerAdded = true;
+  }
+
   chartHistory = new Chart(canvas, {
     type: "line",
     data: {
@@ -583,6 +598,7 @@ function renderHistoryChart(data, moneda, periodo) {
           data:            computed.pignusData,
           borderColor:     "#10b981",
           backgroundColor: "#10b98118",
+          borderWidth:     4,
           tension:         0.3,
           pointRadius:     3,
           fill:            true,
@@ -592,15 +608,17 @@ function renderHistoryChart(data, moneda, periodo) {
           data:            computed.spyData,
           borderColor:     "#f97316",
           backgroundColor: "transparent",
+          borderWidth:     4,
           tension:         0.3,
           pointRadius:     3,
           fill:            false,
         },
         {
-          label:           "Mercado Pago",
+          label:           "MP",
           data:            computed.mpData,
           borderColor:     "#3b82f6",
           backgroundColor: "transparent",
+          borderWidth:     4,
           tension:         0.3,
           pointRadius:     3,
           fill:            false,
@@ -611,15 +629,26 @@ function renderHistoryChart(data, moneda, periodo) {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
-      // touchend en events: el tooltip desaparece al levantar el dedo en mobile.
-      events: ["mousemove", "mouseout", "click", "touchstart", "touchmove", "touchend"],
+      // Sin "click" ni "touchend": click queda para dismiss manual; tooltip persiste tras levantar el dedo.
+      events: ["mousemove", "mouseout", "touchstart", "touchmove"],
+      onClick(evt, elements, chart) {
+        const isFromTouch = Date.now() - _histLastTouchTs < 500;
+        if (!isFromTouch && chart.tooltip._active?.length > 0) {
+          chart.tooltip.setActiveElements([], {});
+          chart.update();
+        } else if (isFromTouch && _histTooltipDismiss) {
+          chart.tooltip.setActiveElements([], {});
+          chart.update();
+          _histTooltipDismiss = false;
+        }
+      },
       plugins: {
         legend: {
           position: "top",
           labels: {
             color: "#374151",
             font: { size: 14 },
-            padding: 16,
+            padding: 8,
             usePointStyle: true,
             pointStyle:    "line",
           },
@@ -771,6 +800,20 @@ function renderDonut(activos, view) {
   });
 }
 
+function wrapLabel(text, maxChars = 12) {
+  const words = text.split(' ');
+  const lines = [];
+  let line = '';
+  for (const w of words) {
+    if (!line) { line = w; continue; }
+    const test = `${line} ${w}`;
+    if (test.length <= maxChars) { line = test; }
+    else { lines.push(line); line = w; }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
 function renderTreemap(activos, view) {
   const canvas = document.getElementById("chartPie");
   if (!canvas) return;
@@ -802,17 +845,17 @@ function renderTreemap(activos, view) {
             if (!d) return "";
             const areaPct = total > 0 ? (d.value / total) * 100 : 0;
             if (areaPct < 4) return "";
-            // Mostrar rendimiento del sector/tipo, no su peso en cartera
             const perf    = d.perf;
             const perfStr = perf != null
               ? (perf >= 0 ? "+" : "") + perf.toFixed(1) + "%"
               : "";
             if (areaPct < 8) return perfStr;
-            return [d.label, perfStr];
+            const labelLines = wrapLabel(d.label);
+            return [...labelLines, perfStr];
           },
-          color:     ["#fff", "#ffffffdd"],
-          font:      [{ size: 14, weight: "bold" }, { size: 13 }],
-          hoverColor:["#fff", "#ffffffdd"],
+          color:     ["#fff", "#fff", "#fff", "#ffffffdd"],
+          font:      [{ size: 13, weight: "bold" }, { size: 13, weight: "bold" }, { size: 13, weight: "bold" }, { size: 12 }],
+          hoverColor:["#fff", "#fff", "#fff", "#ffffffdd"],
           align: "center",
           position: "middle",
         },
