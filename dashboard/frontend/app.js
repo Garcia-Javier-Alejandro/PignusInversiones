@@ -329,6 +329,8 @@ function perfColor(pct) {
 
 /**
  * Calcula el rendimiento ponderado (%) por grupo (sector o tipo).
+ * Usa promedio ponderado de gananciaPorcentaje por valorizado para evitar
+ * problemas de unidades con bonos (IOL reporta ppc per 100 VN, no per 1 VN).
  * Devuelve un mapa { nombre → pct | null }.
  */
 function buildPerfMap(activos, view) {
@@ -336,13 +338,14 @@ function buildPerfMap(activos, view) {
   for (const a of activos) {
     if ((a.titulo?.simbolo || a.simbolo) === "CASH") continue;
     const key = view === "sector" ? getSector(a) : getTipo(a);
-    if (!data[key]) data[key] = { gain: 0, cost: 0 };
-    data[key].gain += a.gananciaDinero || 0;
-    data[key].cost += (a.ppc || 0) * (a.cantidad || 0);
+    if (!data[key]) data[key] = { weightedSum: 0, totalWeight: 0 };
+    const w = a.valorizado || 0;
+    data[key].weightedSum += (a.gananciaPorcentaje || 0) * w;
+    data[key].totalWeight += w;
   }
   const result = {};
   for (const [name, d] of Object.entries(data)) {
-    result[name] = d.cost > 0 ? (d.gain / d.cost) * 100 : null;
+    result[name] = d.totalWeight > 0 ? d.weightedSum / d.totalWeight : null;
   }
   return result;
 }
