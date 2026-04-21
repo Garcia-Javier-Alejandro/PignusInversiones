@@ -395,43 +395,36 @@ async function handleMPRate(request, env) {
 }
 
 /**
- * Obtiene precios históricos del CEDEAR SPY.BA desde Yahoo Finance (sin auth).
+ * Obtiene precios históricos del CEDEAR SPY desde IOL (bCBA).
  * Caché de 24h en KV. Devuelve array de { date: "YYYY-MM-DD", price: number }.
- * Usa adjclose (precio ajustado por splits/dividendos).
  */
 async function getSPYHistory(env) {
-  const cached = await kvGet(env, "spy_history_cache_yf", null);
+  const cached = await kvGet(env, "spy_history_cache_iol", null);
   if (cached && (Date.now() - cached.fetchedAt) < 86_400_000) {
     return cached.prices;
   }
 
   try {
-    const response = await fetch(
-      "https://query1.finance.yahoo.com/v8/finance/chart/SPY.BA?interval=1d&range=1y",
-      { headers: { "User-Agent": "Mozilla/5.0" } }
+    const token = await getValidToken(env);
+    const to    = new Date().toISOString().split("T")[0];
+    const from  = new Date(Date.now() - 365 * 86_400_000).toISOString().split("T")[0];
+    const data  = await iolGet(
+      `/api/v2/cotizaciones/titulos/bCBA/SPY/historico/ajustada?fechaDesde=${from}&fechaHasta=${to}&ajustada=sinAjustar`,
+      token, env
     );
-    if (!response.ok) throw new Error(`Yahoo Finance ${response.status}`);
 
-    const json   = await response.json();
-    const result = json.chart?.result?.[0];
-    if (!result) throw new Error("Yahoo Finance: sin datos");
-
-    const timestamps = result.timestamp || [];
-    const closes     = result.indicators?.adjclose?.[0]?.adjclose
-                    || result.indicators?.quote?.[0]?.close
-                    || [];
-
-    const prices = timestamps
-      .map((ts, i) => ({
-        date:  new Date(ts * 1000).toISOString().split("T")[0],
-        price: closes[i],
+    const items  = data.instrumentoHistorico || data || [];
+    const prices = items
+      .map(p => ({
+        date:  (p.fechaHora || "").split("T")[0],
+        price: p.cierre || p.ultimoPrecio || null,
       }))
       .filter(p => p.date && p.price != null && p.price > 0);
 
-    await env.TOKEN_CACHE.put("spy_history_cache_yf", JSON.stringify({ fetchedAt: Date.now(), prices }));
+    await env.TOKEN_CACHE.put("spy_history_cache_iol", JSON.stringify({ fetchedAt: Date.now(), prices }));
     return prices;
   } catch (err) {
-    console.warn("No se pudo obtener historial SPY desde Yahoo Finance:", err.message);
+    console.warn("No se pudo obtener historial SPY desde IOL:", err.message);
     return cached?.prices || [];
   }
 }

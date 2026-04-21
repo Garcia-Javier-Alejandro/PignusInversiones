@@ -498,7 +498,7 @@ function computeHistoryChartData(snapshots, spyPrices, deposits, moneda, periodo
     const periodDeposits = depositsSorted.filter(d => d.date > lo && d.date <= snap.date);
     for (const dep of periodDeposits) {
       const depSpy = dep.spyPrice || nearestSPYPrice(spyByDate, dep.date);
-      if (depSpy)     spyUnits += dep.amount / depSpy;
+      if (depSpy)     spyUnits += (dep.amount * (1 - 0.003)) / depSpy;
       if (dep.mpVcp)  mpCuotas += dep.amount / dep.mpVcp;
     }
     lastDate = snap.date;
@@ -587,7 +587,7 @@ function renderHistoryChart(data, moneda, periodo) {
         display:         true,
         content:         monto,
         position:        "start",
-        xAdjust:         36,
+        xAdjust:         8,
         yAdjust:         -4,
         textAlign:       "left",
         backgroundColor: "rgba(96,165,250,0.12)",
