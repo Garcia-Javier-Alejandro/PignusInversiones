@@ -587,7 +587,7 @@ function renderHistoryChart(data, moneda, periodo) {
         display:         true,
         content:         monto,
         position:        "start",
-        xAdjust:         8,
+        xAdjust:         32,
         yAdjust:         -4,
         textAlign:       "left",
         backgroundColor: "rgba(96,165,250,0.12)",

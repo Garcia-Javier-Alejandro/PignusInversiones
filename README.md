@@ -44,10 +44,10 @@ Navegador
 Cloudflare Worker  "pignus-api"
 (dashboard/worker/src/index.js)
     │                         │                        │
-    │ Bearer token + proxy    │ GET SPY.BA             │ GET VCP fondo MP
+    │ Bearer token + proxy    │ GET SPY histórico      │ GET VCP fondo MP
     ▼                         ▼                        ▼
-api.invertironline.com   Yahoo Finance          api.argentinadatos.com
-(portafolio, cuenta)     (SPY.BA histórico)     (Mercado Fondo Clase A)
+api.invertironline.com   api.invertironline.com  api.argentinadatos.com
+(portafolio, cuenta)     (CEDEAR SPY bCBA)       (Mercado Fondo Clase A)
 ```
 
 **Stack frontend:** HTML + Alpine.js v3 + Tailwind CSS (CDN) + Chart.js v4 + chartjs-plugin-datalabels + chartjs-chart-treemap + chartjs-plugin-annotation. Sin build step, sin bundler.
@@ -94,13 +94,20 @@ api.invertironline.com   Yahoo Finance          api.argentinadatos.com
 - Limitación conocida: ventas grandes de posiciones con ganancias no realizadas importantes pueden generar falsos positivos.
 
 #### Benchmarks: SPY y Mercado Pago
-- **SPY (CEDEAR):** precios históricos obtenidos de Yahoo Finance (`SPY.BA`, adjclose). Sin autenticación. Caché de 24h en KV (`spy_history_cache_yf`).
+- **SPY (CEDEAR):** precios históricos obtenidos de IOL (`/api/v2/cotizaciones/titulos/bCBA/SPY/historico/ajustada`, sin ajuste). Usa el mismo token del Worker. Caché de 24h en KV (`spy_history_cache_iol`).
 - **Mercado Pago:** rendimiento del "Mercado Fondo - Clase A" (fondo money market de MP, datos CAFCI via argentinadatos.com). Se guarda el VCP por fecha en cada snapshot.
 - **Lógica de benchmarks con depósitos:** cada depósito "compra" unidades adicionales de SPY y cuotas adicionales del fondo MP al precio de ese día. Así la comparación es justa: *¿qué hubiera pasado si cada peso aportado se hubiera puesto en SPY o en MP?*
+- **Comisión SPY:** cada compra hipotética de SPY descuenta un 0,3% de comisión (`amount × 0,997 / precio`), reflejando el costo real de operar CEDEARs en IOL.
 
 #### Cálculo de rendimiento total
 - Fórmula: `(valor actual − Σ depósitos) / Σ depósitos × 100`.
 - Si no hay depósitos registrados, cae a ganancia sobre costo por PPC (menos preciso).
+
+#### Cálculo de rendimiento 30d — Modified Dietz
+- Base: snapshot más antiguo disponible con ≥ 30 días de antigüedad.
+- Fórmula: `(valorHoy − valorBase − Σ depósitos) / (valorBase + Σ(W_i × depósito_i)) × 100`.
+- Ponderación temporal: `W_i = (días_totales − días_desde_inicio_hasta_depósito) / días_totales`.
+- Evita sobreestimar el rendimiento cuando hay inyecciones de capital a mitad del período.
 
 #### Tipos y sectores
 - IOL devuelve `activo.titulo.tipo` con strings propios (`"CEDEARS"`, `"ACCIONES"`, `"TitulosPublicos"`, `"FondoComundeInversion"`).
@@ -146,7 +153,7 @@ api.invertironline.com   Yahoo Finance          api.argentinadatos.com
 | `portfolio_history` | array | Snapshots diarios `{ date, totalARS, totalGanancia, mep, mpVcp }` |
 | `positions_history` | array | Posiciones diarias `{ date, activos: [{s,t,q,ppc,v,g,gp}] }` — campos: s=símbolo, t=tipo, q=cantidad, ppc, v=valorizado, g=gananciaDinero, gp=gananciaPorcentaje |
 | `deposits` | array | Depósitos/retiros `{ date, amount, note, auto, mpVcp, spyPrice }` |
-| `spy_history_cache_yf` | objeto | `{ fetchedAt, prices: [{date, price}] }` — precios SPY.BA, TTL 24h |
+| `spy_history_cache_iol` | objeto | `{ fetchedAt, prices: [{date, price}] }` — precios CEDEAR SPY desde IOL bCBA, TTL 24h |
 | `mep_cache` | objeto | `{ mep, al30Ars, al30dUsd, fetchedAt }` — MEP implícito AL30/AL30D, TTL 15 min |
 | `mp_rates` | array | Tasas diarias manuales MP `{ date, dailyPct }` (legado, no usado activamente) |
 
