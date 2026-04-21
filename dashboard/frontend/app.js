@@ -587,7 +587,9 @@ function renderHistoryChart(data, moneda, periodo) {
         display:         true,
         content:         monto,
         position:        "start",
-        yAdjust:         6,
+        xAdjust:         36,
+        yAdjust:         -4,
+        textAlign:       "left",
         backgroundColor: "rgba(96,165,250,0.12)",
         color:           "#3b82f6",
         font:            { size: 13, weight: "bold" },
@@ -718,17 +720,17 @@ function formatARS(v) {
   if (v == null || isNaN(v)) return "—";
   const abs  = Math.abs(v);
   const sign = v < 0 ? "-" : "";
-  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toLocaleString("es-AR", { maximumFractionDigits: 2 })}M`;
-  if (abs >= 1_000)     return `${sign}$${(abs / 1_000).toLocaleString("es-AR", { maximumFractionDigits: 1 })}k`;
-  return `${sign}$${abs.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toLocaleString("en-US", { maximumFractionDigits: 2 })}M`;
+  if (abs >= 1_000)     return `${sign}$${(abs / 1_000).toLocaleString("en-US", { maximumFractionDigits: 1 })}k`;
+  return `${sign}$${abs.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
 
 function formatUSD(v) {
   if (v == null || isNaN(v)) return "—";
   const abs  = Math.abs(v);
   const sign = v < 0 ? "-" : "";
-  if (abs >= 1_000) return `${sign}USD ${(abs / 1_000).toLocaleString("es-AR", { maximumFractionDigits: 1 })}k`;
-  return `${sign}USD ${abs.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
+  if (abs >= 1_000) return `${sign}USD ${(abs / 1_000).toLocaleString("en-US", { maximumFractionDigits: 1 })}k`;
+  return `${sign}USD ${abs.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
 
 function formatValor(pesos, moneda, mep) {
@@ -739,7 +741,7 @@ function formatValor(pesos, moneda, mep) {
 function formatPct(v) {
   if (v == null || isNaN(v)) return "—";
   const sign = v > 0 ? "+" : "";
-  return `${sign}${v.toLocaleString("es-AR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+  return `${sign}${v.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 }
 
 // ─── Gráfico de composición (torta o treemap) ─────────────────────────────────
@@ -914,7 +916,7 @@ function renderTreemap(activos, view) {
 // ─── Utilidades ───────────────────────────────────────────────────────────────
 
 function horaActual() {
-  return new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+  return new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 }
 
 // ─── Exposición global para Alpine.js ─────────────────────────────────────────
