@@ -265,9 +265,9 @@
     <section x-show="portfolio && account" class="grid grid-cols-3 gap-3">
 
       <!-- Total cartera -->
-      <div class="rounded-xl p-4 text-center" style="background:#fff; border:1.5px solid var(--border);">
+      <div class="rounded-xl p-4 flex flex-col items-center text-center" style="background:#fff; border:1.5px solid var(--border);">
         <p class="section-label mb-2">Total cartera</p>
-        <p class="font-bold leading-tight tabular-nums" style="font-size:1.3rem; color:var(--ink); text-align:center;"
+        <p class="font-bold leading-tight tabular-nums" style="font-size:1.3rem; color:var(--ink);"
           x-text="formatValor(calcTotalCartera(portfolio, account), moneda, mep)"></p>
       </div>
 
