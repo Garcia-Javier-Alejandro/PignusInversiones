@@ -101,6 +101,7 @@ api.invertironline.com   api.invertironline.com  api.argentinadatos.com
 
 #### Cálculo de rendimiento total
 - Fórmula: `(valor actual − Σ depósitos) / Σ depósitos × 100`.
+- Misma filosofía que el rendimiento 30d: numerador = valor neto de lo aportado; denominador = capital base. Aquí el capital base es el total históricamente invertido (no hay snapshot previo a los depósitos iniciales). Los depósitos también generan retorno pero no ajustan el denominador — sesgo aceptado conscientemente, idéntico al de 30d.
 - Si no hay depósitos registrados, cae a ganancia sobre costo por PPC (menos preciso).
 
 #### Cálculo de rendimiento 30d
