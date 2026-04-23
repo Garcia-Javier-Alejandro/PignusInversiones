@@ -434,6 +434,7 @@
               <tr class="section-label" style="border-bottom:2px solid var(--border-mid); background:var(--cream-hover); color:var(--ink-2);">
 
                 <th class="text-left px-4 py-3 cursor-pointer hover:text-[#1c1814] transition-colors select-none"
+                    style="width:5.5rem"
                     @click="sortBy('simbolo')">
                   Activo
                   <span x-show="sortCol === 'simbolo'" class="opacity-50 ml-0.5">
@@ -478,14 +479,6 @@
                 </th>
 
                 <th class="text-right px-3 py-3 cursor-pointer hover:text-[#1c1814] transition-colors select-none"
-                    @click="sortBy('valorizado')">
-                  Valorizado
-                  <span x-show="sortCol === 'valorizado'" class="opacity-50 ml-0.5">
-                    <span x-show="sortDir === 'asc'">↑</span><span x-show="sortDir === 'desc'">↓</span>
-                  </span>
-                </th>
-
-                <th class="text-right px-3 py-3 cursor-pointer hover:text-[#1c1814] transition-colors select-none"
                     @click="sortBy('pct')">
                   Rend. %
                   <span x-show="sortCol === 'pct'" class="opacity-50 ml-0.5">
@@ -494,10 +487,19 @@
                 </th>
 
                 <th class="text-right px-4 py-3 cursor-pointer hover:text-[#1c1814] transition-colors select-none"
+                    style="min-width:7rem"
                     :class="expandTable ? '' : 'hidden'"
                     @click="sortBy('dinero')">
                   Rend. $
                   <span x-show="sortCol === 'dinero'" class="opacity-50 ml-0.5">
+                    <span x-show="sortDir === 'asc'">↑</span><span x-show="sortDir === 'desc'">↓</span>
+                  </span>
+                </th>
+
+                <th class="text-right px-3 py-3 cursor-pointer hover:text-[#1c1814] transition-colors select-none"
+                    @click="sortBy('valorizado')">
+                  Valor
+                  <span x-show="sortCol === 'valorizado'" class="opacity-50 ml-0.5">
                     <span x-show="sortDir === 'asc'">↑</span><span x-show="sortDir === 'desc'">↓</span>
                   </span>
                 </th>
@@ -514,9 +516,9 @@
 
                   <!-- Activo -->
                   <td class="px-4 py-3.5">
-                    <div class="font-bold" style="font-size:1.1rem; color:var(--ink);"
+                    <div class="font-bold whitespace-nowrap" style="font-size:1.1rem; color:var(--ink);"
                       x-text="activo.titulo?.simbolo || activo.simbolo || '?'"></div>
-                    <div class="truncate max-w-[140px] mt-0.5" style="font-size:1rem; color:var(--ink-3);"
+                    <div class="truncate max-w-[72px] mt-0.5" style="font-size:1rem; color:var(--ink-3);"
                       x-text="activo.titulo?.descripcion || ''"></div>
                   </td>
 
@@ -536,36 +538,36 @@
                   </td>
 
                   <!-- Sector -->
-                  <td class="px-3 py-3.5 text-base" style="color:var(--ink-2);"
+                  <td class="px-3 py-3.5 text-base whitespace-nowrap" style="color:var(--ink-2);"
                       :class="expandTable ? '' : 'hidden'"
                       x-text="getSector(activo)"></td>
 
                   <!-- PPC -->
-                  <td class="px-3 py-3.5 text-right tabular-nums text-base" style="color:var(--ink-3);"
+                  <td class="px-3 py-3.5 text-right tabular-nums text-base whitespace-nowrap" style="color:var(--ink-3);"
                       :class="expandTable ? '' : 'hidden'"
                       x-text="activo.titulo?.simbolo === 'CASH' ? '—' : formatARS(activo.ppc)"></td>
 
                   <!-- Último precio -->
-                  <td class="px-3 py-3.5 text-right tabular-nums text-base" style="color:var(--ink-3);"
+                  <td class="px-3 py-3.5 text-right tabular-nums text-base whitespace-nowrap" style="color:var(--ink-3);"
                       :class="expandTable ? '' : 'hidden'"
                       x-text="(activo.titulo?.simbolo === 'CASH' || !activo.ppc) ? '—' : formatARS(activo.ppc * (1 + (activo.gananciaPorcentaje || 0) / 100))"></td>
 
-                  <!-- Valorizado -->
-                  <td class="px-3 py-3.5 text-right tabular-nums font-bold" style="font-size:1.1rem; color:var(--ink);"
-                      x-text="formatValor(activo.valorizado || 0, moneda, mep)"></td>
-
                   <!-- Rend % -->
-                  <td class="px-3 py-3.5 text-right tabular-nums font-bold" style="font-size:1.1rem;"
+                  <td class="px-3 py-3.5 text-right tabular-nums font-bold whitespace-nowrap" style="font-size:1.1rem;"
                       :style="(activo.gananciaPorcentaje || 0) >= 0 ? 'color:var(--green)' : 'color:var(--red)'"
                       x-text="activo.titulo?.simbolo === 'CASH' ? '—' : formatPct(activo.gananciaPorcentaje)">
                   </td>
 
                   <!-- Rend $ -->
-                  <td class="px-4 py-3.5 text-right tabular-nums font-bold text-base"
+                  <td class="px-4 py-3.5 text-right tabular-nums font-bold text-base whitespace-nowrap"
                       :class="expandTable ? '' : 'hidden'"
                       :style="(activo.gananciaDinero || 0) >= 0 ? 'color:var(--green)' : 'color:var(--red)'"
                       x-text="activo.titulo?.simbolo === 'CASH' ? '—' : formatValor(activo.gananciaDinero || 0, moneda, mep)">
                   </td>
+
+                  <!-- Valor -->
+                  <td class="px-3 py-3.5 text-right tabular-nums font-bold whitespace-nowrap" style="font-size:1.1rem; color:var(--ink);"
+                      x-text="formatValor(activo.valorizado || 0, moneda, mep)"></td>
                 </tr>
               </template>
 
