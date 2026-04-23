@@ -225,7 +225,7 @@ function sortActivos(activos, col, dir) {
  * Rendimiento de los últimos ~30 días, ajustado por depósitos.
  * Base: snapshot más reciente con antigüedad ≥ 30 días. Si no hay ninguno,
  * usa el más antiguo disponible (e.g., los primeros días de uso).
- * Fórmula: (valorHoy − valorBase − Σdepósitos) / valorBase × 100
+ * Fórmula: (valorHoy − Σdepósitos) / valorBase − 1
  * Retorna { pct, fromDate } o null si no hay datos suficientes.
  */
 function calcReturn30d(snapshots, deposits, totalCartera) {
@@ -246,25 +246,11 @@ function calcReturn30d(snapshots, deposits, totalCartera) {
 
   if (!base.totalARS || base.totalARS <= 0) return null;
 
-  const baseDate  = new Date(base.date + "T12:00:00");
-  const totalDays = (Date.now() - baseDate.getTime()) / 86_400_000;
-
   const periodDeposits = (deposits || []).filter(d => d.date > base.date);
   const totalCF        = periodDeposits.reduce((s, d) => s + (d.amount || 0), 0);
 
-  // Modified Dietz: pondera cada depósito por la fracción del período que le queda
-  // W_i = (días_totales − días_desde_inicio_a_depósito) / días_totales
-  const weightedCF = periodDeposits.reduce((s, d) => {
-    const daysElapsed = (new Date(d.date + "T12:00:00") - baseDate) / 86_400_000;
-    const w = totalDays > 0 ? (totalDays - daysElapsed) / totalDays : 0;
-    return s + w * (d.amount || 0);
-  }, 0);
-
-  const numerator   = totalCartera - base.totalARS - totalCF;
-  const denominator = base.totalARS + weightedCF;
-
   return {
-    pct:      denominator > 0 ? (numerator / denominator) * 100 : null,
+    pct:      ((totalCartera - totalCF) / base.totalARS - 1) * 100,
     fromDate: base.date,
   };
 }

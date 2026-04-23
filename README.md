@@ -103,11 +103,13 @@ api.invertironline.com   api.invertironline.com  api.argentinadatos.com
 - Fórmula: `(valor actual − Σ depósitos) / Σ depósitos × 100`.
 - Si no hay depósitos registrados, cae a ganancia sobre costo por PPC (menos preciso).
 
-#### Cálculo de rendimiento 30d — Modified Dietz
-- Base: snapshot más antiguo disponible con ≥ 30 días de antigüedad.
-- Fórmula: `(valorHoy − valorBase − Σ depósitos) / (valorBase + Σ(W_i × depósito_i)) × 100`.
-- Ponderación temporal: `W_i = (días_totales − días_desde_inicio_hasta_depósito) / días_totales`.
-- Evita sobreestimar el rendimiento cuando hay inyecciones de capital a mitad del período.
+#### Cálculo de rendimiento 30d
+- Base: snapshot más reciente con ≥ 30 días de antigüedad. Si no existe ninguno, usa el más antiguo disponible.
+- Fórmula: `(valorHoy − Σ depósitos) / valorBase − 1`.
+- **Decisión de diseño:** se evaluaron tres alternativas:
+  - *TWRR* — elimina el efecto de timing de los depósitos. Descartado porque el timing de cuándo ingresar capital se considera parte de la estrategia y se quiere que quede reflejado en la métrica.
+  - *Modified Dietz / MWR* — correcto para medir crecimiento real de riqueza, pero el denominador ponderado no es comparable directamente con retornos simples de benchmarks (SPY, MP).
+  - *Fórmula actual* — captura el timing y es intuitiva: "¿cuánto vale mi capital original después de descontar lo que puse yo?". Denominador fijo en `valorBase`; tiene el sesgo conocido de que depósitos tempranos inflan el resultado (los depósitos también generan retorno pero no aparecen en el denominador), efecto aceptado conscientemente.
 
 #### Tipos y sectores
 - IOL devuelve `activo.titulo.tipo` con strings propios (`"CEDEARS"`, `"ACCIONES"`, `"TitulosPublicos"`, `"FondoComundeInversion"`).
