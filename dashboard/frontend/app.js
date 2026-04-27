@@ -228,7 +228,7 @@ function sortActivos(activos, col, dir) {
  * Fórmula: (valorHoy − Σdepósitos) / valorBase − 1
  * Retorna { pct, fromDate } o null si no hay datos suficientes.
  */
-function calcReturn30d(snapshots, deposits, totalCartera) {
+function calcReturn30d(snapshots, deposits, totalCartera, moneda, mep) {
   if (!snapshots || snapshots.length < 2 || !totalCartera) return null;
 
   const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
@@ -247,8 +247,19 @@ function calcReturn30d(snapshots, deposits, totalCartera) {
   if (!base.totalARS || base.totalARS <= 0) return null;
 
   const periodDeposits = (deposits || []).filter(d => d.date > base.date);
-  const totalCF        = periodDeposits.reduce((s, d) => s + (d.amount || 0), 0);
 
+  if (moneda === "MEP" && mep) {
+    const mepBase           = base.mep || mep;
+    const baseUSD           = base.totalARS / mepBase;
+    const periodDepositoUSD = periodDeposits.reduce((s, d) => s + (d.amount || 0) / (d.mep || mep), 0);
+    const carteraUSD        = totalCartera / mep;
+    return {
+      pct:      ((carteraUSD - periodDepositoUSD) / baseUSD - 1) * 100,
+      fromDate: base.date,
+    };
+  }
+
+  const totalCF = periodDeposits.reduce((s, d) => s + (d.amount || 0), 0);
   return {
     pct:      ((totalCartera - totalCF) / base.totalARS - 1) * 100,
     fromDate: base.date,
@@ -260,9 +271,14 @@ function calcReturn30d(snapshots, deposits, totalCartera) {
  * Fórmula: (valor actual − Σ depósitos) / Σ depósitos × 100
  * Si no hay depósitos registrados, cae al cálculo por PPC (menos preciso).
  */
-function calcTotalReturn(activos, totalCartera, deposits) {
+function calcTotalReturn(activos, totalCartera, deposits, moneda, mep) {
   const totalAportado = (deposits || []).reduce((s, d) => s + (d.amount || 0), 0);
   if (totalAportado > 0 && totalCartera > 0) {
+    if (moneda === "MEP" && mep) {
+      const aportadoUSD = (deposits || []).reduce((s, d) => s + (d.amount || 0) / (d.mep || mep), 0);
+      const carteraUSD  = totalCartera / mep;
+      return ((carteraUSD - aportadoUSD) / aportadoUSD) * 100;
+    }
     return ((totalCartera - totalAportado) / totalAportado) * 100;
   }
   // Fallback: ganancia acumulada por PPC (excluye CASH)
@@ -381,7 +397,7 @@ async function saveDeposit(alpineState) {
     await fetch(`${WORKER_URL}/api/deposit`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ date, amount, note }),
+      body:    JSON.stringify({ date, amount, note, mep: alpineState.mep || null }),
     });
     alpineState.depositDate   = "";
     alpineState.depositAmount = "";

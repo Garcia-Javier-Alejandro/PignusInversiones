@@ -134,7 +134,7 @@
     },
     rend30d() {
       if (!this.historyData || !this.portfolio || !this.account) return null;
-      return calcReturn30d(this.historyData.snapshots, this.deposits, calcTotalCartera(this.portfolio, this.account));
+      return calcReturn30d(this.historyData.snapshots, this.deposits, calcTotalCartera(this.portfolio, this.account), this.moneda, this.mep);
     },
     init() {
       loadDashboard(this);
@@ -275,8 +275,8 @@
       <div class="rounded-xl p-4" style="background:#fff; border:1.5px solid var(--border);">
         <p class="section-label mb-2">Rend. total</p>
         <p class="font-bold leading-tight tabular-nums" style="font-size:1.9rem;"
-          :style="calcTotalReturn(getActivosConCash(portfolio, account), calcTotalCartera(portfolio, account), deposits) >= 0 ? 'color:var(--green)' : 'color:var(--red)'"
-          x-text="formatPct(calcTotalReturn(getActivosConCash(portfolio, account), calcTotalCartera(portfolio, account), deposits))"></p>
+          :style="calcTotalReturn(getActivosConCash(portfolio, account), calcTotalCartera(portfolio, account), deposits, moneda, mep) >= 0 ? 'color:var(--green)' : 'color:var(--red)'"
+          x-text="formatPct(calcTotalReturn(getActivosConCash(portfolio, account), calcTotalCartera(portfolio, account), deposits, moneda, mep))"></p>
       </div>
 
       <!-- Rendimiento 30d -->

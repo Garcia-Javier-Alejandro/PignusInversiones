@@ -202,7 +202,7 @@ async function handleHistory(request, env) {
     deposits.sort((a, b) => a.date.localeCompare(b.date));
   }
 
-  // Backfill mpVcp y spyPrice en depósitos que los necesiten
+  // Backfill mpVcp, spyPrice y mep en depósitos que los necesiten
   let depositsChanged = inferred.length > 0;
   for (const dep of deposits) {
     if (dep.mpVcp == null) {
@@ -212,6 +212,10 @@ async function handleHistory(request, env) {
     if (dep.spyPrice == null) {
       const price = spyByDate[dep.date] || nearestSpyPrice(spyPrices, dep.date);
       if (price) { dep.spyPrice = price; depositsChanged = true; }
+    }
+    if (dep.mep == null) {
+      const m = nearestMepForDate(snapshots, dep.date);
+      if (m) { dep.mep = m; depositsChanged = true; }
     }
   }
   if (depositsChanged) {
@@ -265,6 +269,25 @@ function nearestSpyPrice(spyPrices, targetDate) {
     if (p.date <= targetDate && (best == null || p.date > best.date)) best = p;
   }
   return best?.price || null;
+}
+
+/** Devuelve el MEP del snapshot más cercano a targetDate (antes o después). */
+function nearestMepForDate(snapshots, targetDate) {
+  let before = null, after = null;
+  for (const s of snapshots) {
+    if (!s.mep || s.mep <= 1) continue;
+    if (s.date <= targetDate) {
+      if (!before || s.date > before.date) before = s;
+    } else {
+      if (!after  || s.date < after.date)  after  = s;
+    }
+  }
+  if (before && after) {
+    const db = new Date(targetDate) - new Date(before.date);
+    const da = new Date(after.date)  - new Date(targetDate);
+    return db <= da ? before.mep : after.mep;
+  }
+  return before?.mep ?? after?.mep ?? null;
 }
 
 /**
@@ -440,13 +463,13 @@ async function handleGetDeposits(request, env) {
 }
 
 async function handleDeposit(request, env) {
-  const { date, amount, note } = await request.json();
+  const { date, amount, note, mep } = await request.json();
   if (!date || !amount || amount <= 0) {
     return jsonResponse({ error: "date y amount requeridos" }, { status: 400, origin: env.ALLOWED_ORIGIN });
   }
   const deposits = await kvGet(env, "deposits", []);
   const idx = deposits.findIndex(d => d.date === date);
-  const entry = { date, amount, note: note || "" };
+  const entry = { date, amount, note: note || "", mep: mep || null };
   if (idx >= 0) deposits[idx] = entry;
   else deposits.push(entry);
   deposits.sort((a, b) => a.date.localeCompare(b.date));
