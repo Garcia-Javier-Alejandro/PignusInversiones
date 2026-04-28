@@ -572,6 +572,9 @@ function renderHistoryChart(data, moneda, periodo) {
 
   const fmtY = v => moneda === "MEP" ? formatUSD(v) : formatARS(v);
 
+  const xMin = computed.pignusData[0].x;
+  const xMax = computed.pignusData[computed.pignusData.length - 1].x;
+
   // Anotaciones: línea vertical punteada por cada depósito visible
   const annotations = {};
   for (const dep of (computed.visibleDeposits || [])) {
@@ -695,6 +698,8 @@ function renderHistoryChart(data, moneda, periodo) {
       scales: {
         x: {
           type: "linear",
+          min: xMin,
+          max: xMax,
           ticks: {
             color: "#9ca3af",
             font: { size: 13 },
