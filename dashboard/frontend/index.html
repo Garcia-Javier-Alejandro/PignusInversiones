@@ -345,7 +345,13 @@
 
       <div class="px-4 pt-4 pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
            style="border-bottom:1px solid var(--border);">
-        <h2 class="section-label">Composición y Rendimiento</h2>
+        <div class="flex items-center gap-2">
+          <h2 class="section-label">Composición y Rendimiento</h2>
+          <button @click.stop="treemapInfo = !treemapInfo"
+            class="w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0 transition-colors"
+            :style="treemapInfo ? 'background:var(--blue); color:#fff;' : 'background:var(--border); color:var(--ink-2);'"
+            title="Información sobre el gráfico">i</button>
+        </div>
         <div class="flex items-center gap-2 flex-shrink-0">
 
           <!-- Toggle tipo de gráfico -->
@@ -387,6 +393,13 @@
         </div>
       </div>
 
+      <div x-show="treemapInfo" x-transition
+           class="px-4 py-3 text-sm flex items-start justify-between gap-3"
+           style="background:rgba(29,78,216,0.05); border-bottom:1px solid var(--border); color:var(--ink-2);">
+        <span>El área del sector representa la fracción de la cartera invertida en el mismo; El porcentaje indica el rendimiento del sector desde el Precio Promedio de Compra, en pesos.</span>
+        <button @click="treemapInfo = false" class="flex-shrink-0 font-bold" style="color:var(--ink-3);">✕</button>
+      </div>
+
       <div class="p-4">
         <div class="h-64"><canvas id="chartPie"></canvas></div>
 
@@ -397,13 +410,6 @@
             <div class="flex-1 h-1.5 rounded-full"
                  style="background:linear-gradient(to right, #c23b22, #c8bfa8 45%, #c8bfa8 55%, #1a6b2a)"></div>
             <span class="text-sm tabular-nums" style="color:var(--ink-3); width:2.5rem;">+10%</span>
-            <button @click.stop="treemapInfo = !treemapInfo"
-              class="w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0 transition-colors"
-              :style="treemapInfo ? 'background:var(--blue); color:#fff;' : 'background:var(--border); color:var(--ink-2);'"
-              title="Información sobre el treemap">i</button>
-          </div>
-          <div x-show="treemapInfo" x-transition class="mt-2 text-sm" style="color:var(--ink-2);">
-            El área del sector indica el porcentaje de la cartera; El porcentaje indica el rendimiento del sector desde el Precio Promedio de Compra.
           </div>
         </div>
       </div>
