@@ -28,3 +28,6 @@ id = "8c1461c1de29450ba42172257fcfdeda"
 [vars]
 IOL_BASE_URL = "https://api.invertironline.com"
 # ALLOWED_ORIGIN NO va aquí — se configura como secret para que no quede en el repo
+
+[triggers]
+crons = ["0 20 * * 1-5"]

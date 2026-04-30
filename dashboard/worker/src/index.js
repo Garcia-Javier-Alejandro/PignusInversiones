@@ -122,6 +122,14 @@ export default {
       );
     }
   },
+
+  /**
+   * Cron trigger — guarda snapshot diario automáticamente al cierre del mercado.
+   * Configurado en wrangler.toml: lunes a viernes a las 20:00 UTC (17:00 ARG).
+   */
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runDailySnapshot(env));
+  },
 };
 
 // ─── Handlers de endpoints ─────────────────────────────────────────────────────
@@ -297,15 +305,21 @@ async function handleSnapshot(request, env) {
   if (!totalARS || totalARS <= 0) {
     return jsonResponse({ error: "Invalid data" }, { status: 400, origin: env.ALLOWED_ORIGIN });
   }
+  const { skipped } = await saveSnapshotToKV({ totalARS, mep, totalGanancia, activos }, env);
+  return jsonResponse({ ok: true, skipped: !!skipped }, { origin: env.ALLOWED_ORIGIN });
+}
 
+/**
+ * Lógica compartida de guardado de snapshot. Usada por handleSnapshot (HTTP)
+ * y runDailySnapshot (cron). Retorna { skipped: true } si ya existe para hoy.
+ */
+async function saveSnapshotToKV({ totalARS, mep, totalGanancia, activos }, env) {
   // Fecha en zona horaria de Argentina (UTC-3, sin DST). Usar UTC causaría que a las
   // 23:xx ARG el snapshot quede fechado al día siguiente.
   const today   = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Argentina/Buenos_Aires" });
   const history = await kvGet(env, "portfolio_history", []);
 
-  if (history.some(s => s.date === today)) {
-    return jsonResponse({ ok: true, skipped: true }, { origin: env.ALLOWED_ORIGIN });
-  }
+  if (history.some(s => s.date === today)) return { skipped: true };
 
   // Guardar resumen liviano (totales + benchmarks)
   const mpVcp = await fetchMercadoFondoVCP(today);
@@ -328,7 +342,63 @@ async function handleSnapshot(request, env) {
     await env.TOKEN_CACHE.put("positions_history", JSON.stringify(positions));
   }
 
-  return jsonResponse({ ok: true }, { origin: env.ALLOWED_ORIGIN });
+  return { skipped: false };
+}
+
+/**
+ * Obtiene el MEP actual usando la cadena de fallbacks (misma lógica que handleMEP
+ * pero retorna el valor numérico directamente, sin construir una Response).
+ */
+async function getMepValue(env) {
+  const PARES = [
+    { ars: "/api/v2/cotizaciones/titulos/bCBA/AL30",  usd: "/api/v2/cotizaciones/titulos/bCBA/AL30D" },
+    { ars: "/api/v2/cotizaciones/titulos/bCBA/GD30",  usd: "/api/v2/cotizaciones/titulos/bCBA/GD30D" },
+    { ars: "/api/v2/cotizaciones/titulos/byma/AL30",  usd: "/api/v2/cotizaciones/titulos/byma/AL30D" },
+    { ars: "/api/v2/cotizaciones/titulos/byma/GD30",  usd: "/api/v2/cotizaciones/titulos/byma/GD30D" },
+    { ars: "/api/v2/cotizaciones/titulos/bCBA/AE38",  usd: "/api/v2/cotizaciones/titulos/bCBA/AE38D" },
+    { ars: "/api/v2/cotizaciones/titulos/bCBA/GD35",  usd: "/api/v2/cotizaciones/titulos/bCBA/GD35D" },
+  ];
+  try {
+    const token = await getValidToken(env);
+    for (const par of PARES) {
+      try {
+        const [bARS, bUSD] = await Promise.all([iolGet(par.ars, token, env), iolGet(par.usd, token, env)]);
+        const p = bARS.ultimoPrecio ?? bARS.precio;
+        const q = bUSD.ultimoPrecio ?? bUSD.precio;
+        if (p && q && q !== 0) return p / q;
+      } catch { /* probar siguiente */ }
+    }
+  } catch { /* token o red falló */ }
+  // Fallback externo
+  try { return await fetchMepFromDolarApi(); } catch { /* ignorar */ }
+  return null;
+}
+
+/**
+ * Corre el snapshot diario desde el cron trigger.
+ * Autentica con IOL, obtiene portafolio y MEP, y guarda en KV.
+ */
+async function runDailySnapshot(env) {
+  try {
+    const token     = await getValidToken(env);
+    const [portfolio, account, mep] = await Promise.all([
+      iolGet("/api/v2/portafolio/argentina", token, env),
+      iolGet("/api/v2/estadocuenta",          token, env),
+      getMepValue(env),
+    ]);
+
+    const cuentaPesos = (account?.cuentas || []).find(c => c.moneda === "peso_Argentino");
+    const totalARS    = cuentaPesos?.total || 0;
+    if (!totalARS) { console.error("Cron snapshot: totalARS inválido, abortando."); return; }
+
+    const activos      = portfolio?.activos || [];
+    const totalGanancia = activos.reduce((s, a) => s + (a.gananciaDinero || 0), 0);
+
+    const { skipped } = await saveSnapshotToKV({ totalARS, mep, totalGanancia, activos }, env);
+    console.log(`Cron snapshot: ${skipped ? "ya existía para hoy" : "guardado OK"} | ARS=${totalARS} | MEP=${mep}`);
+  } catch (err) {
+    console.error("Cron snapshot falló:", err.message);
+  }
 }
 
 /**
