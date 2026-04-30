@@ -43,11 +43,16 @@ Navegador
     ▼
 Cloudflare Worker  "pignus-api"
 (dashboard/worker/src/index.js)
-    │                         │                        │
-    │ Bearer token + proxy    │ GET SPY histórico      │ GET VCP fondo MP
-    ▼                         ▼                        ▼
-api.invertironline.com   api.invertironline.com  api.argentinadatos.com
-(portafolio, cuenta)     (CEDEAR SPY bCBA)       (Mercado Fondo Clase A)
+    │                     │                    │                     │
+    │ Bearer token+proxy  │ GET SPY histórico  │ GET VCP fondo MP    │ MEP fallback
+    │                     │                    │ MEP histórico       │
+    ▼                     ▼                    ▼                     ▼
+api.invertironline.com   api.invertironline.com  api.argentinadatos.com  dolarapi.com
+(portafolio, cuenta,     (CEDEAR SPY bCBA)       (Mercado Fondo Clase A, (MEP actual
+ bonos MEP)                                       MEP por fecha)          si IOL falla)
+
+Cloudflare Cron Trigger → scheduled() → runDailySnapshot()
+(lunes–viernes 20:00 UTC = 17:00 ARG)
 ```
 
 **Stack frontend:** HTML + Alpine.js v3 + Tailwind CSS (CDN) + Chart.js v4 + chartjs-plugin-datalabels + chartjs-chart-treemap + chartjs-plugin-annotation. Sin build step, sin bundler.
@@ -69,10 +74,13 @@ api.invertironline.com   api.invertironline.com  api.argentinadatos.com
 - Si los datos son inválidos, conserva el estado anterior y muestra un banner ámbar.
 
 #### Snapshots diarios
-- Cada vez que el dashboard carga datos válidos, el frontend llama a `POST /api/snapshot` con `{ totalARS, mep, totalGanancia }`.
-- El Worker guarda un snapshot por día (ignora duplicados de la misma fecha).
+- El Worker guarda un snapshot por día de dos maneras:
+  - **Automática (cron):** el scheduled handler `runDailySnapshot()` se dispara lunes a viernes a las 20:00 UTC (17:00 ARG, cierre de mercado). Configurado en `wrangler.toml` como `crons = ["0 20 * * 1-5"]`.
+  - **Desde el frontend:** cuando el dashboard carga datos válidos, llama a `POST /api/snapshot` con `{ totalARS, mep, totalGanancia, activos }`. Funciona como respaldo en días no hábiles o si el cron falla.
+- El Worker ignora duplicados de la misma fecha (primer escritura gana).
 - `totalGanancia = Σ(activo.gananciaDinero)` — ganancia no realizada total, usada para inferir depósitos.
 - Cada snapshot también incluye `mpVcp` (Valor Cuota Patrimonial del Mercado Fondo Clase A, obtenido de CAFCI via argentinadatos.com) y `mep`.
+- El frontend muestra un banner de advertencia si el último snapshot tiene más de un día de antigüedad (posible hueco en el historial).
 
 **Estructura de un snapshot:**
 ```json
@@ -157,7 +165,7 @@ api.invertironline.com   api.invertironline.com  api.argentinadatos.com
 | `positions_history` | array | Posiciones diarias `{ date, activos: [{s,t,q,ppc,v,g,gp}] }` — campos: s=símbolo, t=tipo, q=cantidad, ppc, v=valorizado, g=gananciaDinero, gp=gananciaPorcentaje |
 | `deposits` | array | Depósitos/retiros `{ date, amount, note, auto, mpVcp, spyPrice }` |
 | `spy_history_cache_iol` | objeto | `{ fetchedAt, prices: [{date, price}] }` — precios CEDEAR SPY desde IOL bCBA, TTL 24h |
-| `mep_cache` | objeto | `{ mep, al30Ars, al30dUsd, fetchedAt }` — MEP implícito AL30/AL30D, TTL 15 min |
+| `mep_cache` | objeto | `{ mep, fetchedAt }` — MEP cacheado (cualquier fuente), TTL 15 min |
 | `mp_rates` | array | Tasas diarias manuales MP `{ date, dailyPct }` (legado, no usado activamente) |
 
 #### Límites de almacenamiento KV (estimación)
@@ -181,7 +189,7 @@ Con ~20 posiciones por día y ~70 bytes/posición comprimida:
 | GET | `/api/history` | Snapshots + precios SPY + depósitos (con backfill e inferencia automática) |
 | POST | `/api/snapshot` | Guarda snapshot del día `{ totalARS, mep, totalGanancia, activos }` — escribe en `portfolio_history` y `positions_history` |
 | GET | `/api/positions` | Historial completo de posiciones por día |
-| GET | `/api/mep` | MEP implícito `{ mep, al30Ars, al30dUsd }` calculado desde precios IOL (caché 15 min) |
+| GET | `/api/mep` | MEP implícito `{ mep, stale, par }` — intenta 6 pares de bonos en IOL (AL30/GD30/AE38/GD35 en bCBA y byma), luego dolarapi.com, luego último snapshot. `stale: true` si el valor es estimado. |
 | GET | `/api/deposits` | Lista de depósitos registrados |
 | POST | `/api/deposit` | Registra depósito manual `{ date, amount, note }` (legado) |
 | POST | `/api/mp-rate` | Registra tasa diaria MP manual (legado) |
@@ -235,6 +243,9 @@ El mapa `SECTORES` en `app.js` es hardcodeado. Para un activo nuevo: agregar `S�
 - [x] **Snapshot completo de posiciones:** `POST /api/snapshot` ahora acepta `activos` y los persiste compactos en `positions_history`. Accesibles via `GET /api/positions`.
 - [ ] **Gráfico histórico normalizado:** opción de ver las curvas indexadas a 100 en el punto inicial del período seleccionado, en lugar de valores absolutos en ARS/USD.
 - [x] **MEP desde AL30/AL30D:** `GET /api/mep` calcula `precio_AL30_ARS / precio_AL30D_USD` vía IOL. El frontend ya no depende de dolarapi.com.
+- [x] **MEP fallback chain robusto:** si AL30 falla (IOL dejó de responder para ese par), intenta GD30, AE38, GD35 en bCBA y byma. Luego dolarapi.com. Luego el último valor en `portfolio_history`. El frontend muestra un punto naranja cuando el MEP es estimado, con tooltip indicando la fuente.
+- [x] **Backfill histórico de MEP:** `GET /api/history` rellena fechas sin MEP usando argentinadatos.com (`/v1/cotizaciones/dolares/bolsa/{yyyy}/{mm}/{dd}`). Permite reconstruir la curva USD para fechas pasadas.
+- [x] **Cron trigger automático:** snapshot diario sin intervención manual. `scheduled` handler en el Worker + `crons = ["0 20 * * 1-5"]` en `wrangler.toml`.
 
 ### Mobile / UX — bugs y mejoras detectadas
 - [x] **Alto del gráfico histórico:** `h-72` en mobile, `h-56` en sm+.
@@ -254,6 +265,7 @@ El mapa `SECTORES` en `app.js` es hardcodeado. Para un activo nuevo: agregar `S�
 - [ ] **Nuevos activos → actualizar SECTORES:** cada vez que se incorpora un símbolo nuevo, agregarlo manualmente al mapa en `app.js`.
 
 ### Infraestructura
+- [x] **Cron trigger para snapshots automáticos:** `scheduled` handler + `wrangler.toml` `[triggers]`, desplegado.
 - [ ] **Tests de integración para el Worker:** verificar los endpoints críticos (token cache, snapshot, inferDeposits) contra el KV real.
 - [ ] **Alertas de mantenimiento IOL:** notificación (push o email) cuando se detectan datos vacíos, en lugar de solo mostrar el banner.
 
