@@ -102,6 +102,9 @@
   x-data="{
     moneda: 'ARS',
     mep: null,
+    mepStale: false,
+    mepPar: null,
+    snapshotWarning: null,
     portfolio: null,
     account: null,
     loading: true,
@@ -205,6 +208,16 @@
     <button @click="stale = false" class="ml-4 font-bold opacity-80 hover:opacity-100">✕</button>
   </div>
 
+  <!-- ── Banner: historial con huecos ─────────────────────────────────────── -->
+  <div
+    x-show="snapshotWarning && !loading"
+    class="fixed top-0 left-0 right-0 z-40 px-4 py-3 text-sm flex items-center justify-between"
+    style="background:#78350f; color:#fef3c7; border-bottom:2px solid #92400e;"
+  >
+    <span x-text="snapshotWarning"></span>
+    <button @click="snapshotWarning = null" class="ml-4 font-bold opacity-80 hover:opacity-100">✕</button>
+  </div>
+
   <!-- ── Header ────────────────────────────────────────────────────────────── -->
   <header class="sticky top-0 z-30" style="background:#fff; border-bottom:2px solid var(--border);">
     <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
@@ -236,6 +249,11 @@
           <span x-text="moneda"></span>
           <span x-show="moneda === 'MEP' && mep" class="opacity-70"
             x-text="mep ? '$' + Math.round(mep).toLocaleString('es-AR') : ''"></span>
+          <span
+            x-show="mepStale"
+            :title="mepPar ? 'MEP estimado (fuente: ' + mepPar + ')' : 'MEP estimado'"
+            style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#f59e0b; flex-shrink:0;"
+          ></span>
         </button>
 
         <!-- Refresh -->

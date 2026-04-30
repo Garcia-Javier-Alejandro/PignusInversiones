@@ -102,14 +102,16 @@ async function loadDashboard(alpineState) {
     if (isValidPortfolio(portfolio)) {
       alpineState.portfolio  = portfolio;
       alpineState.account    = account;
-      alpineState.mep        = mep;
+      alpineState.mep        = mep.value;
+      alpineState.mepStale   = mep.stale;
+      alpineState.mepPar     = mep.par;
       alpineState.updatedAt  = horaActual();
       renderChart(getActivosConCash(portfolio, account), alpineState.chartView, alpineState.chartType);
 
       // Guardar snapshot diario y cargar historial (fire-and-forget en paralelo)
       const totalARS = account?.cuentas?.find(c => c.moneda === "peso_Argentino")?.total || 0;
       const totalGanancia = (portfolio.activos || []).reduce((s, a) => s + (a.gananciaDinero || 0), 0);
-      saveSnapshot(totalARS, mep, totalGanancia, portfolio.activos || []);
+      saveSnapshot(totalARS, mep.value, totalGanancia, portfolio.activos || []);
       loadHistory(alpineState);
     } else {
       alpineState.stale = true;
@@ -149,10 +151,10 @@ async function fetchJSON(url) {
 async function fetchMEP() {
   try {
     const data = await fetchJSON(`${WORKER_URL}/api/mep`);
-    return data.mep || null;
+    return { value: data.mep || null, stale: !!(data.stale), par: data.par || null };
   } catch (err) {
     console.warn("No se pudo obtener el dólar MEP:", err.message);
-    return null;
+    return { value: null, stale: true, par: null };
   }
 }
 
@@ -312,9 +314,21 @@ async function loadHistory(alpineState) {
     // Si /api/mep falló, usar el mep más reciente guardado en snapshots como fallback.
     if (!alpineState.mep) {
       const snap = [...(data.snapshots || [])].reverse().find(s => s.mep > 1);
-      if (snap) alpineState.mep = snap.mep;
+      if (snap) { alpineState.mep = snap.mep; alpineState.mepStale = true; alpineState.mepPar = "snapshot"; }
     }
     renderHistoryChart(data, alpineState.moneda, alpineState.periodoHist);
+
+    // Advertir si el último snapshot tiene más de 1 día de antigüedad.
+    // Indica que el guardado automático viene fallando o el dashboard no se abrió.
+    const snaps = data.snapshots || [];
+    if (snaps.length > 0) {
+      const lastDate = snaps[snaps.length - 1].date;          // "YYYY-MM-DD" ARG
+      const yesterday = new Date(Date.now() - 86_400_000).toISOString().split("T")[0];
+      if (lastDate < yesterday) {
+        const dias = Math.round((Date.now() - new Date(lastDate + "T12:00:00").getTime()) / 86_400_000);
+        alpineState.snapshotWarning = `Último registro guardado hace ${dias} día${dias !== 1 ? "s" : ""}. El historial puede tener huecos.`;
+      }
+    }
   } catch (err) {
     console.warn("No se pudo cargar el historial:", err.message);
   }
