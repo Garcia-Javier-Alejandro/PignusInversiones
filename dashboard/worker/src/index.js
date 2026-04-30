@@ -538,38 +538,72 @@ async function handleMPRate(request, env) {
 }
 
 /**
- * Obtiene precios históricos del CEDEAR SPY desde IOL (bCBA).
- * Caché de 24h en KV. Devuelve array de { date: "YYYY-MM-DD", price: number }.
+ * Obtiene precios históricos del CEDEAR SPY desde IOL.
+ * Intenta bCBA primero, luego byma. Caché de 24h en KV.
+ * Devuelve array de { date: "YYYY-MM-DD", price: number }.
  */
 async function getSPYHistory(env) {
   const cached = await kvGet(env, "spy_history_cache_iol", null);
-  if (cached && (Date.now() - cached.fetchedAt) < 86_400_000) {
+  if (cached?.prices?.length > 0 && (Date.now() - cached.fetchedAt) < 86_400_000) {
     return cached.prices;
   }
 
+  const to   = new Date().toISOString().split("T")[0];
+  const from = new Date(Date.now() - 365 * 86_400_000).toISOString().split("T")[0];
+
+  // Intentar múltiples variantes del endpoint: IOL cambia paths sin previo aviso.
+  const ENDPOINTS = [
+    `/api/v2/cotizaciones/titulos/bCBA/SPY/historico/ajustada?fechaDesde=${from}&fechaHasta=${to}&ajustada=sinAjustar`,
+    `/api/v2/cotizaciones/titulos/bCBA/SPY/historico?fechaDesde=${from}&fechaHasta=${to}&ajustada=sinAjustar`,
+    `/api/v2/cotizaciones/titulos/byma/SPY/historico/ajustada?fechaDesde=${from}&fechaHasta=${to}&ajustada=sinAjustar`,
+    `/api/v2/cotizaciones/titulos/byma/SPY/historico?fechaDesde=${from}&fechaHasta=${to}&ajustada=sinAjustar`,
+  ];
+
   try {
     const token = await getValidToken(env);
-    const to    = new Date().toISOString().split("T")[0];
-    const from  = new Date(Date.now() - 365 * 86_400_000).toISOString().split("T")[0];
-    const data  = await iolGet(
-      `/api/v2/cotizaciones/titulos/bCBA/SPY/historico/ajustada?fechaDesde=${from}&fechaHasta=${to}&ajustada=sinAjustar`,
-      token, env
-    );
+    for (const endpoint of ENDPOINTS) {
+      try {
+        const data   = await iolGet(endpoint, token, env);
+        const prices = parseSPYPrices(data);
+        if (prices.length === 0) continue;   // este endpoint devolvió data pero vacía o en otro formato
 
-    const items  = data.instrumentoHistorico || data || [];
+        await env.TOKEN_CACHE.put("spy_history_cache_iol", JSON.stringify({ fetchedAt: Date.now(), prices }));
+        console.log(`SPY history: ${prices.length} precios desde ${endpoint.split("?")[0]}`);
+        return prices;
+      } catch (endpointErr) {
+        console.warn(`SPY endpoint falló (${endpoint.split("?")[0]}):`, endpointErr.message);
+      }
+    }
+    console.warn("SPY: todos los endpoints fallaron, usando caché anterior.");
+  } catch (err) {
+    console.warn("SPY: error de token/red:", err.message);
+  }
+
+  return cached?.prices || [];
+}
+
+/**
+ * Extrae precios históricos de la respuesta de IOL.
+ * Tolera distintos formatos: array directo, o envuelto en un campo.
+ */
+function parseSPYPrices(data) {
+  const candidates = [
+    data?.instrumentoHistorico,
+    data?.historico,
+    data?.precios,
+    Array.isArray(data) ? data : null,
+  ];
+  for (const items of candidates) {
+    if (!Array.isArray(items) || items.length === 0) continue;
     const prices = items
       .map(p => ({
-        date:  (p.fechaHora || "").split("T")[0],
-        price: p.cierre || p.ultimoPrecio || null,
+        date:  (p.fechaHora || p.fecha || "").split("T")[0],
+        price: p.cierre || p.ultimoPrecio || p.precio || null,
       }))
       .filter(p => p.date && p.price != null && p.price > 0);
-
-    await env.TOKEN_CACHE.put("spy_history_cache_iol", JSON.stringify({ fetchedAt: Date.now(), prices }));
-    return prices;
-  } catch (err) {
-    console.warn("No se pudo obtener historial SPY desde IOL:", err.message);
-    return cached?.prices || [];
+    if (prices.length > 0) return prices;
   }
+  return [];
 }
 
 /**
