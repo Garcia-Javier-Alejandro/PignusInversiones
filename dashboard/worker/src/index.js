@@ -169,15 +169,11 @@ async function handleHistory(request, env) {
     }
   }
 
-  // Backfill mep en snapshots que no lo tengan (p.ej. guardados fuera de horario de mercado).
-  // Usa el valor cacheado más reciente como aproximación razonable.
-  const mepCache = await kvGet(env, "mep_cache", null);
-  if (mepCache?.mep) {
-    for (const snap of snapshots) {
-      if (snap.mep == null) {
-        snap.mep = mepCache.mep;
-        snapshotsChanged = true;
-      }
+  // Backfill mep en snapshots que no lo tengan usando argentinadatos.com (dato exacto por fecha).
+  for (const snap of snapshots) {
+    if (snap.mep == null) {
+      snap.mep = await fetchMepFromArgentinaDatos(snap.date);
+      if (snap.mep) snapshotsChanged = true;
     }
   }
 
@@ -355,6 +351,29 @@ async function handlePositions(request, env) {
  * fuentes externas (solo IOL).
  * Caché KV de 15 minutos para no saturar el endpoint de cotizaciones.
  */
+async function lastKnownMepFromSnapshots(env) {
+  const snapshots = await kvGet(env, "portfolio_history", []);
+  const last = [...snapshots].reverse().find(s => s.mep > 1);
+  return last?.mep ?? null;
+}
+
+async function fetchMepFromDolarApi() {
+  const res = await fetch("https://dolarapi.com/v1/dolares/bolsa");
+  if (!res.ok) throw new Error(`dolarapi.com ${res.status}`);
+  const { compra, venta } = await res.json();
+  if (!compra || !venta) throw new Error("dolarapi.com: precios ausentes");
+  return (compra + venta) / 2;
+}
+
+async function fetchMepFromArgentinaDatos(date) {
+  const [y, m, d] = date.split("-");
+  const res = await fetch(`https://api.argentinadatos.com/v1/cotizaciones/dolares/bolsa/${y}/${m}/${d}`);
+  if (!res.ok) return null;
+  const { compra, venta } = await res.json();
+  if (!compra || !venta) return null;
+  return (compra + venta) / 2;
+}
+
 async function handleMEP(request, env) {
   const cached = await kvGet(env, "mep_cache", null);
   if (cached && (Date.now() - cached.fetchedAt) < 15 * 60_000) {
@@ -364,34 +383,65 @@ async function handleMEP(request, env) {
   // Fuera del horario de mercado (~17:00-11:00 ARG), IOL puede devolver precios cero
   // o el endpoint puede fallar. En ese caso devolvemos la caché aunque haya vencido
   // (stale: true) para que el frontend siempre tenga un MEP disponible.
+  // Pares de bonos a intentar en orden. IOL cambia tickers/mercados sin previo aviso.
+  const PARES = [
+    { ars: "/api/v2/cotizaciones/titulos/bCBA/AL30",  usd: "/api/v2/cotizaciones/titulos/bCBA/AL30D",  label: "AL30/bCBA" },
+    { ars: "/api/v2/cotizaciones/titulos/bCBA/GD30",  usd: "/api/v2/cotizaciones/titulos/bCBA/GD30D",  label: "GD30/bCBA" },
+    { ars: "/api/v2/cotizaciones/titulos/byma/AL30",  usd: "/api/v2/cotizaciones/titulos/byma/AL30D",  label: "AL30/byma" },
+    { ars: "/api/v2/cotizaciones/titulos/byma/GD30",  usd: "/api/v2/cotizaciones/titulos/byma/GD30D",  label: "GD30/byma" },
+    { ars: "/api/v2/cotizaciones/titulos/bCBA/AE38",  usd: "/api/v2/cotizaciones/titulos/bCBA/AE38D",  label: "AE38/bCBA" },
+    { ars: "/api/v2/cotizaciones/titulos/bCBA/GD35",  usd: "/api/v2/cotizaciones/titulos/bCBA/GD35D",  label: "GD35/bCBA" },
+  ];
+
   try {
     const token = await getValidToken(env);
-    const [al30, al30d] = await Promise.all([
-      iolGet("/api/v2/cotizaciones/titulos/bCBA/AL30",  token, env),
-      iolGet("/api/v2/cotizaciones/titulos/bCBA/AL30D", token, env),
-    ]);
 
-    const precioARS = al30.ultimoPrecio  ?? al30.precio;
-    const precioUSD = al30d.ultimoPrecio ?? al30d.precio;
+    for (const par of PARES) {
+      try {
+        const [bARS, bUSD] = await Promise.all([
+          iolGet(par.ars, token, env),
+          iolGet(par.usd, token, env),
+        ]);
+        const precioARS = bARS.ultimoPrecio ?? bARS.precio;
+        const precioUSD = bUSD.ultimoPrecio ?? bUSD.precio;
+        if (!precioARS || !precioUSD || precioUSD === 0) continue;
 
-    if (!precioARS || !precioUSD || precioUSD === 0) {
-      // Precios fuera de horario — devolver caché anterior si existe
-      if (cached) return jsonResponse({ ...cached, stale: true }, { origin: env.ALLOWED_ORIGIN });
-      return jsonResponse({ error: "Precio AL30/AL30D no disponible" }, { status: 502, origin: env.ALLOWED_ORIGIN });
+        const result = {
+          mep:       precioARS / precioUSD,
+          par:       par.label,
+          fetchedAt: Date.now(),
+        };
+        await env.TOKEN_CACHE.put("mep_cache", JSON.stringify(result));
+        return jsonResponse(result, { origin: env.ALLOWED_ORIGIN });
+      } catch {
+        // Este par falló, probar el siguiente
+      }
     }
 
-    const result = {
-      mep:       precioARS / precioUSD,
-      al30Ars:   precioARS,
-      al30dUsd:  precioUSD,
-      fetchedAt: Date.now(),
-    };
-    await env.TOKEN_CACHE.put("mep_cache", JSON.stringify(result));
-    return jsonResponse(result, { origin: env.ALLOWED_ORIGIN });
+    // Ningún par de IOL funcionó — intentar dolarapi.com como fuente externa
+    try {
+      const mepExterno = await fetchMepFromDolarApi();
+      const result = { mep: mepExterno, par: "dolarapi.com", fetchedAt: Date.now() };
+      await env.TOKEN_CACHE.put("mep_cache", JSON.stringify(result));
+      return jsonResponse(result, { origin: env.ALLOWED_ORIGIN });
+    } catch { /* dolarapi.com también falló */ }
+
+    // Último recurso: caché KV o último snapshot con MEP
+    if (cached) return jsonResponse({ ...cached, stale: true }, { origin: env.ALLOWED_ORIGIN });
+    const lastSnapMep = await lastKnownMepFromSnapshots(env);
+    if (lastSnapMep) return jsonResponse({ mep: lastSnapMep, stale: true, par: "snapshot" }, { origin: env.ALLOWED_ORIGIN });
+    return jsonResponse({ error: "MEP no disponible" }, { status: 502, origin: env.ALLOWED_ORIGIN });
 
   } catch (err) {
-    // IOL caído o error de red — devolver caché aunque esté vencida
+    try {
+      const mepExterno = await fetchMepFromDolarApi();
+      const result = { mep: mepExterno, par: "dolarapi.com", fetchedAt: Date.now() };
+      await env.TOKEN_CACHE.put("mep_cache", JSON.stringify(result));
+      return jsonResponse(result, { origin: env.ALLOWED_ORIGIN });
+    } catch { /* dolarapi.com también falló */ }
     if (cached) return jsonResponse({ ...cached, stale: true }, { origin: env.ALLOWED_ORIGIN });
+    const lastSnapMep = await lastKnownMepFromSnapshots(env);
+    if (lastSnapMep) return jsonResponse({ mep: lastSnapMep, stale: true, par: "snapshot" }, { origin: env.ALLOWED_ORIGIN });
     return jsonResponse({ error: err.message }, { status: 502, origin: env.ALLOWED_ORIGIN });
   }
 }

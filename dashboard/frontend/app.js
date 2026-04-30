@@ -573,7 +573,8 @@ function renderHistoryChart(data, moneda, periodo) {
   const fmtY = v => moneda === "MEP" ? formatUSD(v) : formatARS(v);
 
   const xMin = computed.pignusData[0].x;
-  const xMax = computed.pignusData[computed.pignusData.length - 1].x;
+  const lastValid = [...computed.pignusData].reverse().find(p => p.y != null);
+  const xMax = lastValid ? lastValid.x : computed.pignusData[computed.pignusData.length - 1].x;
 
   // Anotaciones: línea vertical punteada por cada depósito visible
   const annotations = {};

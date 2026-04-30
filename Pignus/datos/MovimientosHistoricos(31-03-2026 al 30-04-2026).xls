@@ -1,0 +1,509 @@
+
+<link href="/Content/IOLV6Screens?v=VgH8Z1a-jutD0wcHe6-38EMAFAKiL20eebwZHsC6V4E1" rel="stylesheet"/>
+
+<html>
+<head>
+    <meta name="viewport" content="width=device-width"/>
+    <title>Operaciones Finalizadas</title>
+</head>
+<body>
+    <tr>
+        <td colspan="15">Operaciones Historicas del periodo 31/3/2026 hasta 30/4/2026</td>
+    </tr>
+<table border="1" cellpadding="0" cellspacing="0">
+    <tr>
+        <th>Nro. de Mov.</th>
+        <th>Nro. de Boleto</th>
+        <th style="width: 500px;">Tipo Mov.</th>
+        <th>Concert.</th>
+        <th>Liquid.</th>
+        <th>Est</th>
+        <th>Cant. titulos</th>
+        <th>Precio</th>
+        <th>Comis.</th>
+        <th>Iva Com.</th>
+        <th>Otros Imp.</th>
+        <th>Monto</th>
+        <th>Observaciones</th>
+        <th style="width: 220px;">Tipo Cuenta</th>
+    </tr>
+
+
+            <tr>
+                <td>171213814</td>
+                <td>9230397</td>
+                <td style="width: 60px;">Compra(ADGO)</td>
+                <td>20/04/26</td>
+                <td>                        <span>21/04/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>2</td>
+                <td>18560</td>
+                <td>
+                        <span>111,36</span>
+                </td>
+                <td>
+                        <span>23,39</span>
+                </td>
+                <td>
+                        <span>31,44</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-37.286,19</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>171213498</td>
+                <td>9230189</td>
+                <td style="width: 60px;">Compra(ADGO)</td>
+                <td>20/04/26</td>
+                <td>                        <span>21/04/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>45</td>
+                <td>18510</td>
+                <td>
+                        <span>2.498,85</span>
+                </td>
+                <td>
+                        <span>524,76</span>
+                </td>
+                <td>
+                        <span>705,51</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-836.679,12</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>171186223</td>
+                <td>9211531</td>
+                <td style="width: 60px;">Venta(TZX26)</td>
+                <td>20/04/26</td>
+                <td>                        <span>21/04/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>235500</td>
+                <td>379,15</td>
+                <td>
+                        <span>2.678,69</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>89,29</span>
+                </td>
+                <td>
+                        <span>890.130,27</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>170782082</td>
+                <td>0</td>
+                <td style="width: 60px;">Pago de Dividendos(GGAL)</td>
+                <td>15/04/26</td>
+                <td>                        <span>15/04/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>0</td>
+                <td>0</td>
+                <td>
+                        <span>14,66</span>
+                </td>
+                <td>
+                        <span>3,08</span>
+                </td>
+                <td>
+                        <span>293,12</span>
+                </td>
+                <td>
+                        <span>3.876,58</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>170662288</td>
+                <td>8905727</td>
+                <td style="width: 60px;">Compra(TZX26)</td>
+                <td>15/04/26</td>
+                <td>                        <span>15/04/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>48625</td>
+                <td>375,25</td>
+                <td>
+                        <span>547,40</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>18,25</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-183.030,96</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>170643003</td>
+                <td>8892220</td>
+                <td style="width: 60px;">Compra(SLB)</td>
+                <td>15/04/26</td>
+                <td>                        <span>16/04/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>15</td>
+                <td>25540</td>
+                <td>
+                        <span>1.149,30</span>
+                </td>
+                <td>
+                        <span>241,35</span>
+                </td>
+                <td>
+                        <span>324,49</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-384.815,14</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>170648549</td>
+                <td>8891267</td>
+                <td style="width: 60px;">Compra(ASML)</td>
+                <td>15/04/26</td>
+                <td>                        <span>15/04/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>58</td>
+                <td>14470</td>
+                <td>
+                        <span>2.517,78</span>
+                </td>
+                <td>
+                        <span>528,73</span>
+                </td>
+                <td>
+                        <span>710,85</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-843.017,36</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>170644959</td>
+                <td>8900478</td>
+                <td style="width: 60px;">Compra(SPY)</td>
+                <td>15/04/26</td>
+                <td>                        <span>16/04/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>15</td>
+                <td>51150</td>
+                <td>
+                        <span>2.301,75</span>
+                </td>
+                <td>
+                        <span>483,37</span>
+                </td>
+                <td>
+                        <span>649,87</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-770.684,99</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>170644760</td>
+                <td>8900640</td>
+                <td style="width: 60px;">Compra(XLV)</td>
+                <td>15/04/26</td>
+                <td>                        <span>16/04/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>78</td>
+                <td>7555</td>
+                <td>
+                        <span>1.767,87</span>
+                </td>
+                <td>
+                        <span>371,25</span>
+                </td>
+                <td>
+                        <span>499,13</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-591.928,25</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>170642921</td>
+                <td>8900818</td>
+                <td style="width: 60px;">Compra(VIST)</td>
+                <td>15/04/26</td>
+                <td>                        <span>16/04/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>12</td>
+                <td>32060</td>
+                <td>
+                        <span>1.154,16</span>
+                </td>
+                <td>
+                        <span>242,37</span>
+                </td>
+                <td>
+                        <span>325,85</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-386.442,38</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>170642938</td>
+                <td>8900815</td>
+                <td style="width: 60px;">Compra(XOM)</td>
+                <td>15/04/26</td>
+                <td>                        <span>16/04/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>17</td>
+                <td>21780</td>
+                <td>
+                        <span>1.110,78</span>
+                </td>
+                <td>
+                        <span>233,26</span>
+                </td>
+                <td>
+                        <span>313,61</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-371.917,65</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>170642958</td>
+                <td>8900782</td>
+                <td style="width: 60px;">Compra(XLE)</td>
+                <td>15/04/26</td>
+                <td>                        <span>16/04/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>9</td>
+                <td>40880</td>
+                <td>
+                        <span>1.103,76</span>
+                </td>
+                <td>
+                        <span>231,79</span>
+                </td>
+                <td>
+                        <span>311,62</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-369.567,17</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>170642518</td>
+                <td>8901158</td>
+                <td style="width: 60px;">Compra(MSFT)</td>
+                <td>15/04/26</td>
+                <td>                        <span>16/04/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>5</td>
+                <td>19650</td>
+                <td>
+                        <span>294,75</span>
+                </td>
+                <td>
+                        <span>61,90</span>
+                </td>
+                <td>
+                        <span>83,22</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-98.689,87</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>70597569</td>
+                <td>2770887</td>
+                <td style="width: 60px;">Dep&#243;sito de Fondos - Transferencia electr&#243;nica - BANCO SUPERVIELLE S.A.</td>
+                <td>10/04/26</td>
+                <td>                        <span>10/04/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>0</td>
+                <td>0</td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>1.500.000,00</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>70597544</td>
+                <td>2770865</td>
+                <td style="width: 60px;">Dep&#243;sito de Fondos - Transferencia electr&#243;nica - BANCO SUPERVIELLE S.A.</td>
+                <td>10/04/26</td>
+                <td>                        <span>10/04/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>0</td>
+                <td>0</td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>2.500.000,00</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>169939121</td>
+                <td>8394135</td>
+                <td style="width: 60px;">Compra(COPX)</td>
+                <td>08/04/26</td>
+                <td>                        <span>09/04/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>11</td>
+                <td>8697,2727</td>
+                <td>
+                        <span>287,01</span>
+                </td>
+                <td>
+                        <span>60,27</span>
+                </td>
+                <td>
+                        <span>81,03</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-96.098,31</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>169902906</td>
+                <td>8372205</td>
+                <td style="width: 60px;">Compra(NU)</td>
+                <td>08/04/26</td>
+                <td>                        <span>09/04/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>44</td>
+                <td>11050</td>
+                <td>
+                        <span>1.458,60</span>
+                </td>
+                <td>
+                        <span>306,31</span>
+                </td>
+                <td>
+                        <span>411,81</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-488.376,72</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>169900333</td>
+                <td>8370487</td>
+                <td style="width: 60px;">Venta(VIST)</td>
+                <td>08/04/26</td>
+                <td>                        <span>09/04/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>19</td>
+                <td>31000</td>
+                <td>
+                        <span>1.767,00</span>
+                </td>
+                <td>
+                        <span>371,07</span>
+                </td>
+                <td>
+                        <span>498,88</span>
+                </td>
+                <td>
+                        <span>586.363,05</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>169150927</td>
+                <td>8084238</td>
+                <td style="width: 60px;">Suscripci&#243;n FCI(IOLCAMA)</td>
+                <td>01/04/26</td>
+                <td>                        <span>01/04/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>477</td>
+                <td>10,9655</td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-5.236,62</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+</table>
+</body>
+</html>
