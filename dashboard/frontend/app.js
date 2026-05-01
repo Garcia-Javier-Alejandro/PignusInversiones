@@ -573,9 +573,13 @@ function periodCutoff(periodo) {
 
 /** Devuelve el precio SPY más reciente disponible en o antes de `targetDate`. */
 function nearestSPYPrice(spyByDate, targetDate) {
+  let bestDate = null;
   let best = null;
   for (const [d, price] of Object.entries(spyByDate)) {
-    if (d <= targetDate) best = price;
+    if (d <= targetDate && (bestDate === null || d > bestDate)) {
+      bestDate = d;
+      best = price;
+    }
   }
   return best;
 }
