@@ -788,7 +788,7 @@ function computeCarteraUSDChartData(snapshots, deposits, periodo) {
   if (!snapshots || snapshots.length < 2) return null;
 
   const allSorted = [...snapshots]
-    .filter(s => !s.synthetic && s.mep > 1 && s.totalARS > 0)
+    .filter(s => s.mep > 1 && s.totalARS > 0)
     .sort((a, b) => a.date.localeCompare(b.date));
 
   const cutoff  = periodCutoff(periodo);
