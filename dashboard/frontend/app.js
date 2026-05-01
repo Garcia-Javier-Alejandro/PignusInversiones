@@ -782,7 +782,9 @@ function renderHistoryChart(data, moneda, periodo) {
 
 // ─── Gráfico Cartera ARS y USD MEP ───────────────────────────────────────────
 
-function computeCarteraUSDChartData(snapshots, periodo) {
+// TWR (Time-Weighted Return): igual que el primer gráfico, cada depósito se descuenta
+// del período en que ocurre, evitando que los aportes inflen el rendimiento.
+function computeCarteraUSDChartData(snapshots, deposits, periodo) {
   if (!snapshots || snapshots.length < 2) return null;
 
   const allSorted = [...snapshots]
@@ -793,20 +795,49 @@ function computeCarteraUSDChartData(snapshots, periodo) {
   const visible = cutoff ? allSorted.filter(s => s.date >= cutoff) : allSorted;
   if (visible.length < 2) return null;
 
-  const base    = visible[0];
-  const arsBase = base.totalARS;
-  const usdBase = base.totalARS / base.mep;
+  const depositsSorted = [...(deposits || [])]
+    .filter(d => !cutoff || d.date >= visible[0].date)
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   const arsData = [];
   const usdData = [];
   const mepData = [];
 
-  for (const snap of visible) {
-    const ts  = new Date(snap.date + "T12:00:00").getTime();
-    const usd = snap.totalARS / snap.mep;
-    arsData.push({ x: ts, y: ((snap.totalARS / arsBase) - 1) * 100 });
-    usdData.push({ x: ts, y: ((usd / usdBase) - 1) * 100 });
+  // Punto inicial: 0 %
+  let twrARS  = 1.0;
+  let twrUSD  = 1.0;
+  let prevARS = visible[0].totalARS;
+  let prevUSD = visible[0].totalARS / visible[0].mep;
+  let lastDate = visible[0].date;
+
+  arsData.push({ x: new Date(visible[0].date + "T12:00:00").getTime(), y: 0 });
+  usdData.push({ x: new Date(visible[0].date + "T12:00:00").getTime(), y: 0 });
+  mepData.push({ x: new Date(visible[0].date + "T12:00:00").getTime(), y: visible[0].mep });
+
+  for (let i = 1; i < visible.length; i++) {
+    const snap = visible[i];
+    const currUSD = snap.totalARS / snap.mep;
+
+    // Depósitos/retiros entre el punto anterior y este (exclusive → inclusive)
+    const depsInPeriod = depositsSorted.filter(d => d.date > lastDate && d.date <= snap.date);
+    const depARS = depsInPeriod.reduce((s, d) => s + d.amount, 0);
+    const depUSD = depsInPeriod.reduce((s, d) => {
+      const mep = d.mep > 1 ? d.mep : snap.mep;
+      return s + d.amount / mep;
+    }, 0);
+
+    // Base ajustada por depósitos (TWR: los aportes no cuentan como rendimiento)
+    twrARS *= snap.totalARS / (prevARS + depARS);
+    twrUSD *= currUSD          / (prevUSD + depUSD);
+
+    const ts = new Date(snap.date + "T12:00:00").getTime();
+    arsData.push({ x: ts, y: (twrARS - 1) * 100 });
+    usdData.push({ x: ts, y: (twrUSD - 1) * 100 });
     mepData.push({ x: ts, y: snap.mep });
+
+    lastDate = snap.date;
+    prevARS  = snap.totalARS;
+    prevUSD  = currUSD;
   }
 
   return { arsData, usdData, mepData };
@@ -816,7 +847,7 @@ function renderCarteraUSDChart(data, periodo) {
   const canvas = document.getElementById("chartCarteraUSD");
   if (!canvas) return;
 
-  const computed = computeCarteraUSDChartData(data.snapshots, periodo);
+  const computed = computeCarteraUSDChartData(data.snapshots, data.deposits, periodo);
   if (!computed) return;
 
   if (chartCarteraUSD) chartCarteraUSD.destroy();
