@@ -741,7 +741,7 @@ function renderHistoryChart(data, moneda, periodo) {
           grid: { color: "#f3f4f6" },
         },
         y: {
-          min:   0,
+          ...(moneda === "ARS" ? { min: 6_000_000, max: 15_000_000 } : {}),
           ticks: { color: "#9ca3af", font: { size: 13 }, callback: fmtY },
           grid:  { color: "#f3f4f6" },
         },
