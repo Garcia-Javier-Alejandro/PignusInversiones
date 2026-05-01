@@ -177,10 +177,11 @@ async function handleHistory(request, env) {
     }
   }
 
-  // Backfill mep en snapshots que no lo tengan usando argentinadatos.com (dato exacto por fecha).
+  // Backfill mep en snapshots que no lo tengan. Si la fecha exacta no tiene dato
+  // (feriado o fin de semana), usa el día hábil anterior más cercano (hasta 5 días atrás).
   for (const snap of snapshots) {
-    if (snap.mep == null) {
-      snap.mep = await fetchMepFromArgentinaDatos(snap.date);
+    if (snap.mep == null || snap.mep <= 1) {
+      snap.mep = await fetchMepNearDate(snap.date);
       if (snap.mep) snapshotsChanged = true;
     }
   }
@@ -445,6 +446,20 @@ async function fetchMepFromArgentinaDatos(date) {
   const { compra, venta } = await res.json();
   if (!compra || !venta) return null;
   return (compra + venta) / 2;
+}
+
+async function fetchMepNearDate(date) {
+  const exact = await fetchMepFromArgentinaDatos(date);
+  if (exact) return exact;
+  // Si el día exacto no tiene cotización (feriado/fin de semana), retrocede hasta 5 días hábiles.
+  const d = new Date(date + "T12:00:00Z");
+  for (let i = 1; i <= 5; i++) {
+    const prev = new Date(d);
+    prev.setUTCDate(d.getUTCDate() - i);
+    const mep = await fetchMepFromArgentinaDatos(prev.toISOString().split("T")[0]);
+    if (mep) return mep;
+  }
+  return null;
 }
 
 async function handleMEP(request, env) {

@@ -120,6 +120,7 @@
     historyData: null,
     histInfo: false,
     mepInfo: false,
+    usdInfo: false,
     treemapInfo: false,
     deposits: [],
     mpRateInput: '',
@@ -158,6 +159,7 @@
           if (this.historyData) {
             renderHistoryChart(this.historyData, this.moneda, v);
             renderMEPChart(this.historyData, v);
+            renderCarteraUSDChart(this.historyData, v);
           }
         });
       });
@@ -384,6 +386,36 @@
       <div class="p-4">
         <div x-show="historyData?.snapshots?.length >= 2" class="h-64">
           <canvas id="chartMEP"></canvas>
+        </div>
+        <div x-show="!historyData || historyData.snapshots?.length < 2"
+             class="flex items-center justify-center h-44">
+          <p class="text-base" style="color:var(--border-mid);">Sin datos suficientes.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─ Gráfico Cartera ARS y USD MEP ─────────────────────────────────── -->
+    <section x-show="portfolio" class="rounded-xl" style="background:#fff; border:1.5px solid var(--border);">
+
+      <div class="px-4 pt-4 pb-3 flex items-center gap-2"
+           style="border-bottom:1px solid var(--border);">
+        <h2 class="section-label">Cartera en ARS y USD MEP</h2>
+        <button @click.stop="usdInfo = !usdInfo"
+          class="w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0 transition-colors"
+          :style="usdInfo ? 'background:var(--blue); color:#fff;' : 'background:var(--border); color:var(--ink-2);'"
+          title="Información sobre el gráfico">i</button>
+      </div>
+
+      <div x-show="usdInfo" x-transition
+           class="px-4 py-3 text-sm flex items-start justify-between gap-3"
+           style="background:rgba(29,78,216,0.05); border-bottom:1px solid var(--border); color:var(--ink-2);">
+        <span>Tres series: cartera en pesos (izquierda, verde), cartera en dólares MEP (derecha, azul) y tipo de cambio MEP (naranja punteado, sin eje propio). Permite ver si el portafolio crece en términos reales en dólares o solo nominalmente en pesos.</span>
+        <button @click="usdInfo = false" class="flex-shrink-0 font-bold" style="color:var(--ink-3);">✕</button>
+      </div>
+
+      <div class="p-4">
+        <div x-show="historyData?.snapshots?.length >= 2" class="h-64">
+          <canvas id="chartCarteraUSD"></canvas>
         </div>
         <div x-show="!historyData || historyData.snapshots?.length < 2"
              class="flex items-center justify-center h-44">
