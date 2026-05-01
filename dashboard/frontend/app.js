@@ -7,6 +7,35 @@
 // ─── URL del Worker ────────────────────────────────────────────────────────────
 const WORKER_URL = "https://pignus-api.garcia-javier-alejandro.workers.dev";
 
+// ─── Valores históricos de MEP (fuente: cotizaciones reales de mercado) ────────
+// Se aplican client-side para cubrir snapshots con mep:null sin necesitar redeploy del worker.
+const MEP_HISTORICO = {
+  "2026-03-02": 1413.54, "2026-03-03": 1434.11, "2026-03-04": 1427.70,
+  "2026-03-05": 1433.21, "2026-03-06": 1437.53, "2026-03-09": 1430.17,
+  "2026-03-10": 1422.12, "2026-03-11": 1413.80, "2026-03-12": 1415.52,
+  "2026-03-13": 1424.34, "2026-03-16": 1424.92, "2026-03-17": 1417.30,
+  "2026-03-18": 1420.38, "2026-03-19": 1421.08, "2026-03-20": 1422.13,
+  "2026-03-23": 1415.68, "2026-03-24": 1415.68, "2026-03-25": 1404.55,
+  "2026-03-26": 1401.28, "2026-03-27": 1429.73, "2026-03-30": 1432.51,
+  "2026-03-31": 1422.84,
+  "2026-04-01": 1434.04, "2026-04-02": 1434.04, "2026-04-03": 1434.04,
+  "2026-04-06": 1429.57, "2026-04-07": 1430.16, "2026-04-08": 1424.45,
+  "2026-04-09": 1420.86, "2026-04-10": 1412.50, "2026-04-13": 1404.47,
+  "2026-04-14": 1412.09, "2026-04-15": 1398.53, "2026-04-16": 1406.23,
+  "2026-04-17": 1412.53, "2026-04-20": 1414.73, "2026-04-21": 1414.42,
+  "2026-04-22": 1419.84, "2026-04-23": 1424.40, "2026-04-24": 1438.34,
+  "2026-04-27": 1461.73, "2026-04-28": 1447.18, "2026-04-29": 1435.60,
+  "2026-04-30": 1442.43,
+};
+
+function patchMepValues(snapshots) {
+  for (const s of snapshots) {
+    if ((s.mep == null || s.mep <= 1) && MEP_HISTORICO[s.date]) {
+      s.mep = MEP_HISTORICO[s.date];
+    }
+  }
+}
+
 // ─── Mapa de sectores por símbolo ─────────────────────────────────────────────
 const SECTORES = {
   // Renta fija ajustable
@@ -313,6 +342,7 @@ function getDisponible(account) {
 async function loadHistory(alpineState) {
   try {
     const data = await fetchJSON(`${WORKER_URL}/api/history`);
+    patchMepValues(data.snapshots || []);
     alpineState.historyData = data;
     alpineState.deposits    = data.deposits || [];
     // Si /api/mep falló, usar el mep más reciente guardado en snapshots como fallback.
