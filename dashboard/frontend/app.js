@@ -30,9 +30,8 @@ const MEP_HISTORICO = {
 
 function patchMepValues(snapshots) {
   for (const s of snapshots) {
-    if ((s.mep == null || s.mep <= 1) && MEP_HISTORICO[s.date]) {
-      s.mep = MEP_HISTORICO[s.date];
-    }
+    // Aplicar siempre: sobreescribe valores incorrectos guardados en KV (ej. interpolación errónea).
+    if (MEP_HISTORICO[s.date]) s.mep = MEP_HISTORICO[s.date];
   }
 }
 
@@ -841,8 +840,8 @@ function renderCarteraUSDChart(data, periodo) {
           label:            "Cartera ARS",
           data:             computed.arsData,
           yAxisID:          "yPct",
-          borderColor:      "#10b981",
-          backgroundColor:  "#10b98118",
+          borderColor:      "#3b82f6",
+          backgroundColor:  "#3b82f618",
           borderWidth:      2,
           tension:          0.3,
           pointRadius:      0,
@@ -853,7 +852,7 @@ function renderCarteraUSDChart(data, periodo) {
           label:            "Cartera USD MEP",
           data:             computed.usdData,
           yAxisID:          "yPct",
-          borderColor:      "#3b82f6",
+          borderColor:      "#10b981",
           backgroundColor:  "transparent",
           borderWidth:      2,
           tension:          0.3,
