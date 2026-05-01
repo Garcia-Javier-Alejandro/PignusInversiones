@@ -206,16 +206,19 @@ async function handleHistory(request, env) {
     deposits.sort((a, b) => a.date.localeCompare(b.date));
   }
 
-  // Backfill mpVcp, spyPrice y mep en depósitos que los necesiten
+  // Backfill mpVcp, spyPrice y mep en depósitos que los necesiten.
+  // spyPrice se fuerza a refrescar siempre desde los datos actuales: el valor guardado
+  // puede venir de cuando IOL devolvía el mismo precio actual para toda la historia.
   let depositsChanged = inferred.length > 0;
   for (const dep of deposits) {
     if (dep.mpVcp == null) {
       dep.mpVcp = await fetchMercadoFondoVCP(dep.date);
       if (dep.mpVcp) depositsChanged = true;
     }
-    if (dep.spyPrice == null) {
-      const price = spyByDate[dep.date] || nearestSpyPrice(spyPrices, dep.date);
-      if (price) { dep.spyPrice = price; depositsChanged = true; }
+    const freshSpy = spyByDate[dep.date] || nearestSpyPrice(spyPrices, dep.date);
+    if (freshSpy && freshSpy !== dep.spyPrice) {
+      dep.spyPrice = freshSpy;
+      depositsChanged = true;
     }
     if (dep.mep == null) {
       const m = nearestMepForDate(snapshots, dep.date);
@@ -548,26 +551,36 @@ async function getSPYHistory(env) {
     return cached.prices;
   }
 
+  // Fuente primaria: Yahoo Finance. Confiable, cubre 400 días con precios que varían.
+  // IOL devuelve 'ultimoPrecio' igual para todos los días históricos, no sirve.
+  const fromYahoo = await getSPYFromYahooFinance(env);
+  if (fromYahoo.length > 0) {
+    await env.TOKEN_CACHE.put("spy_history_cache_iol", JSON.stringify({ fetchedAt: Date.now(), prices: fromYahoo }));
+    return fromYahoo;
+  }
+
+  // Fallback: IOL, sólo si devuelve precios históricos reales (variados, suficientes).
   const to   = new Date().toISOString().split("T")[0];
   const from = new Date(Date.now() - 365 * 86_400_000).toISOString().split("T")[0];
-
-  // Intentar múltiples variantes del endpoint: IOL cambia paths sin previo aviso.
   const ENDPOINTS = [
     `/api/v2/cotizaciones/titulos/bCBA/SPY/historico/ajustada?fechaDesde=${from}&fechaHasta=${to}&ajustada=sinAjustar`,
     `/api/v2/cotizaciones/titulos/bCBA/SPY/historico?fechaDesde=${from}&fechaHasta=${to}&ajustada=sinAjustar`,
     `/api/v2/cotizaciones/titulos/byma/SPY/historico/ajustada?fechaDesde=${from}&fechaHasta=${to}&ajustada=sinAjustar`,
     `/api/v2/cotizaciones/titulos/byma/SPY/historico?fechaDesde=${from}&fechaHasta=${to}&ajustada=sinAjustar`,
   ];
-
   try {
     const token = await getValidToken(env);
     for (const endpoint of ENDPOINTS) {
       try {
         const data   = await iolGet(endpoint, token, env);
         const prices = parseSPYPrices(data);
-        if (prices.length === 0) continue;
+        // Rechazar si no son precios históricos reales: IOL suele devolver ultimoPrecio
+        // (precio actual) para todas las fechas, generando una línea plana.
+        if (prices.length < 20) continue;
+        const uniquePrices = new Set(prices.map(p => p.price)).size;
+        if (uniquePrices < 10) continue;
         await env.TOKEN_CACHE.put("spy_history_cache_iol", JSON.stringify({ fetchedAt: Date.now(), prices }));
-        console.log(`SPY history: ${prices.length} precios desde IOL`);
+        console.log(`SPY history: ${prices.length} precios desde IOL (${uniquePrices} únicos)`);
         return prices;
       } catch (endpointErr) {
         console.warn(`SPY IOL endpoint falló:`, endpointErr.message);
@@ -575,14 +588,6 @@ async function getSPYHistory(env) {
     }
   } catch (err) {
     console.warn("SPY: error de token:", err.message);
-  }
-
-  // Fallback: Yahoo Finance → precio SPY en USD × MEP del snapshot → precio CEDEAR en ARS.
-  // El ratio CEDEAR/SPY se deriva de positions_history (datos reales de IOL).
-  const fromYahoo = await getSPYFromYahooFinance(env);
-  if (fromYahoo.length > 0) {
-    await env.TOKEN_CACHE.put("spy_history_cache_iol", JSON.stringify({ fetchedAt: Date.now() - 23 * 3_600_000, prices: fromYahoo }));
-    return fromYahoo;
   }
 
   return cached?.prices || [];
