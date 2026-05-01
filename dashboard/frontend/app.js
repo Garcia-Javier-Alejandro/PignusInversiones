@@ -350,7 +350,7 @@ async function loadHistory(alpineState) {
       if (snap) { alpineState.mep = snap.mep; alpineState.mepStale = true; alpineState.mepPar = "snapshot"; }
     }
     renderHistoryChart(data, alpineState.moneda, alpineState.periodoHist);
-    renderCarteraUSDChart(data, alpineState.periodoHist);
+    renderCarteraUSDChart(data, alpineState.periodoUSD);
 
     // Advertir si el último snapshot tiene más de 1 día de antigüedad.
     // Indica que el guardado automático viene fallando o el dashboard no se abrió.

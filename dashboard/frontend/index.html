@@ -113,7 +113,10 @@
     updatedAt: null,
     chartView: 'sector',
     chartType: 'treemap',
-    periodoHist: 'todo',
+    periodoHist:    'todo',
+    periodoUSD:     'todo',
+    histCollapsed:  false,
+    usdCollapsed:   false,
     expandTable: false,
     sortCol: 'valorizado',
     sortDir: 'desc',
@@ -155,10 +158,12 @@
       });
       this.$watch('periodoHist', v => {
         this.$nextTick(() => {
-          if (this.historyData) {
-            renderHistoryChart(this.historyData, this.moneda, v);
-            renderCarteraUSDChart(this.historyData, v);
-          }
+          if (this.historyData) renderHistoryChart(this.historyData, this.moneda, v);
+        });
+      });
+      this.$watch('periodoUSD', v => {
+        this.$nextTick(() => {
+          if (this.historyData) renderCarteraUSDChart(this.historyData, v);
         });
       });
     },
@@ -315,15 +320,24 @@
     <section x-show="portfolio" class="rounded-xl" style="background:#fff; border:1.5px solid var(--border);">
 
       <div class="px-4 pt-4 pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
-           style="border-bottom:1px solid var(--border);">
+           :style="histCollapsed ? '' : 'border-bottom:1px solid var(--border);'">
         <div class="flex items-center gap-2">
+          <button
+            @click="histCollapsed = !histCollapsed; if (!histCollapsed) $nextTick(() => { if (historyData) renderHistoryChart(historyData, moneda, periodoHist) })"
+            class="p-0.5 rounded transition-all flex-shrink-0 hover:opacity-60"
+            :style="histCollapsed ? 'transform:rotate(-90deg); transition:transform 0.2s;' : 'transform:rotate(0deg); transition:transform 0.2s;'"
+            style="color:var(--ink-3);">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
           <h2 class="section-label">Cartera vs S&amp;P 500 vs MP</h2>
-          <button @click.stop="histInfo = !histInfo"
+          <button x-show="!histCollapsed" @click.stop="histInfo = !histInfo"
             class="w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0 transition-colors"
             :style="histInfo ? 'background:var(--blue); color:#fff;' : 'background:var(--border); color:var(--ink-2);'"
             title="Información sobre las curvas">i</button>
         </div>
-        <div class="flex gap-1 flex-shrink-0">
+        <div x-show="!histCollapsed" class="flex gap-1 flex-shrink-0">
           <template x-for="p in ['1m','3m','6m','todo']" :key="p">
             <button @click="periodoHist = p"
               class="px-3 py-1 text-sm font-semibold rounded-lg transition-colors"
@@ -336,28 +350,30 @@
         </div>
       </div>
 
-      <div x-show="histInfo" x-transition
-           class="px-4 py-3 text-sm flex items-start justify-between gap-3"
-           style="background:rgba(29,78,216,0.05); border-bottom:1px solid var(--border); color:var(--ink-2);">
-        <span>Las curvas de S&amp;P 500 y MP son ilustrativas de cómo hubiera evolucionado la cartera si se hubiera invertido en esos activos.</span>
-        <button @click="histInfo = false" class="flex-shrink-0 font-bold" style="color:var(--ink-3);">✕</button>
-      </div>
-
-      <div class="p-4">
-        <div x-show="historyData?.snapshots?.length >= 2" class="h-72 sm:h-56">
-          <canvas id="chartHistory"></canvas>
+      <div x-show="!histCollapsed" x-transition>
+        <div x-show="histInfo"
+             class="px-4 py-3 text-sm flex items-start justify-between gap-3"
+             style="background:rgba(29,78,216,0.05); border-bottom:1px solid var(--border); color:var(--ink-2);">
+          <span>Las curvas de S&amp;P 500 y MP son ilustrativas de cómo hubiera evolucionado la cartera si se hubiera invertido en esos activos.</span>
+          <button @click="histInfo = false" class="flex-shrink-0 font-bold" style="color:var(--ink-3);">✕</button>
         </div>
-        <div x-show="!historyData || historyData.snapshots?.length < 2"
-             class="flex flex-col items-center justify-center h-44 text-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-9 h-9" style="color:var(--border);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-              d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-          </svg>
-          <p class="text-base font-semibold" style="color:var(--ink-3);">Acumulando historial</p>
-          <p class="text-base" style="color:var(--border-mid); max-width:20rem;">
-            El gráfico aparece a partir del segundo día de uso.
-            <span x-show="historyData?.snapshots?.length === 1">Ya tenés 1 snapshot guardado.</span>
-          </p>
+
+        <div class="p-4">
+          <div x-show="historyData?.snapshots?.length >= 2" class="h-72 sm:h-56">
+            <canvas id="chartHistory"></canvas>
+          </div>
+          <div x-show="!historyData || historyData.snapshots?.length < 2"
+               class="flex flex-col items-center justify-center h-44 text-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-9 h-9" style="color:var(--border);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+            </svg>
+            <p class="text-base font-semibold" style="color:var(--ink-3);">Acumulando historial</p>
+            <p class="text-base" style="color:var(--border-mid); max-width:20rem;">
+              El gráfico aparece a partir del segundo día de uso.
+              <span x-show="historyData?.snapshots?.length === 1">Ya tenés 1 snapshot guardado.</span>
+            </p>
+          </div>
         </div>
       </div>
     </section>
@@ -365,29 +381,53 @@
     <!-- ─ Gráfico Cartera ARS y USD MEP ─────────────────────────────────── -->
     <section x-show="portfolio" class="rounded-xl" style="background:#fff; border:1.5px solid var(--border);">
 
-      <div class="px-4 pt-4 pb-3 flex items-center gap-2"
-           style="border-bottom:1px solid var(--border);">
-        <h2 class="section-label">Cartera en ARS y USD MEP</h2>
-        <button @click.stop="usdInfo = !usdInfo"
-          class="w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0 transition-colors"
-          :style="usdInfo ? 'background:var(--blue); color:#fff;' : 'background:var(--border); color:var(--ink-2);'"
-          title="Información sobre el gráfico">i</button>
-      </div>
-
-      <div x-show="usdInfo" x-transition
-           class="px-4 py-3 text-sm flex items-start justify-between gap-3"
-           style="background:rgba(29,78,216,0.05); border-bottom:1px solid var(--border); color:var(--ink-2);">
-        <span>Si ARS sube pero USD queda plano, el retorno real es explicado por la devaluación.</span>
-        <button @click="usdInfo = false" class="flex-shrink-0 font-bold" style="color:var(--ink-3);">✕</button>
-      </div>
-
-      <div class="p-4">
-        <div x-show="historyData?.snapshots?.length >= 2" class="h-64">
-          <canvas id="chartCarteraUSD"></canvas>
+      <div class="px-4 pt-4 pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
+           :style="usdCollapsed ? '' : 'border-bottom:1px solid var(--border);'">
+        <div class="flex items-center gap-2">
+          <button
+            @click="usdCollapsed = !usdCollapsed; if (!usdCollapsed) $nextTick(() => { if (historyData) renderCarteraUSDChart(historyData, periodoUSD) })"
+            class="p-0.5 rounded transition-all flex-shrink-0 hover:opacity-60"
+            :style="usdCollapsed ? 'transform:rotate(-90deg); transition:transform 0.2s;' : 'transform:rotate(0deg); transition:transform 0.2s;'"
+            style="color:var(--ink-3);">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <h2 class="section-label">Cartera en ARS y USD MEP</h2>
+          <button x-show="!usdCollapsed" @click.stop="usdInfo = !usdInfo"
+            class="w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0 transition-colors"
+            :style="usdInfo ? 'background:var(--blue); color:#fff;' : 'background:var(--border); color:var(--ink-2);'"
+            title="Información sobre el gráfico">i</button>
         </div>
-        <div x-show="!historyData || historyData.snapshots?.length < 2"
-             class="flex items-center justify-center h-44">
-          <p class="text-base" style="color:var(--border-mid);">Sin datos suficientes.</p>
+        <div x-show="!usdCollapsed" class="flex gap-1 flex-shrink-0">
+          <template x-for="p in ['1m','3m','6m','todo']" :key="p">
+            <button @click="periodoUSD = p"
+              class="px-3 py-1 text-sm font-semibold rounded-lg transition-colors"
+              :style="periodoUSD === p
+                ? 'background:var(--ink); color:#f5f0e8;'
+                : 'background:var(--cream); color:var(--ink-3); border:1px solid var(--border);'"
+              x-text="p.toUpperCase()">
+            </button>
+          </template>
+        </div>
+      </div>
+
+      <div x-show="!usdCollapsed" x-transition>
+        <div x-show="usdInfo"
+             class="px-4 py-3 text-sm flex items-start justify-between gap-3"
+             style="background:rgba(29,78,216,0.05); border-bottom:1px solid var(--border); color:var(--ink-2);">
+          <span>Si ARS sube pero USD queda plano, el retorno real es explicado por la devaluación.</span>
+          <button @click="usdInfo = false" class="flex-shrink-0 font-bold" style="color:var(--ink-3);">✕</button>
+        </div>
+
+        <div class="p-4">
+          <div x-show="historyData?.snapshots?.length >= 2" class="h-64">
+            <canvas id="chartCarteraUSD"></canvas>
+          </div>
+          <div x-show="!historyData || historyData.snapshots?.length < 2"
+               class="flex items-center justify-center h-44">
+            <p class="text-base" style="color:var(--border-mid);">Sin datos suficientes.</p>
+          </div>
         </div>
       </div>
     </section>
