@@ -177,12 +177,43 @@ async function handleHistory(request, env) {
     }
   }
 
-  // Backfill mep en snapshots que no lo tengan. Si la fecha exacta no tiene dato
-  // (feriado o fin de semana), usa el día hábil anterior más cercano (hasta 5 días atrás).
+  // Backfill mep: primero intenta argentinadatos.com (fecha exacta o hasta 5 días hábiles atrás).
   for (const snap of snapshots) {
     if (snap.mep == null || snap.mep <= 1) {
       snap.mep = await fetchMepNearDate(snap.date);
       if (snap.mep) snapshotsChanged = true;
+    }
+  }
+
+  // Segundo pase: interpolación lineal para fechas que siguen sin MEP
+  // (argentinadatos.com puede no tener datos para rangos de feriados extendidos).
+  {
+    const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
+    const fills  = new Map();
+    for (let i = 0; i < sorted.length; i++) {
+      if (sorted[i].mep != null && sorted[i].mep > 1) continue;
+      let prev = null, next = null;
+      for (let j = i - 1; j >= 0; j--) {
+        if (sorted[j].mep > 1) { prev = sorted[j]; break; }
+      }
+      for (let j = i + 1; j < sorted.length; j++) {
+        if (sorted[j].mep > 1) { next = sorted[j]; break; }
+      }
+      let val = null;
+      if (prev && next) {
+        const t0 = new Date(prev.date).getTime();
+        const t1 = new Date(next.date).getTime();
+        const ti = new Date(sorted[i].date).getTime();
+        val = prev.mep + (next.mep - prev.mep) * ((ti - t0) / (t1 - t0));
+      } else if (prev) {
+        val = prev.mep;
+      } else if (next) {
+        val = next.mep;
+      }
+      if (val) fills.set(sorted[i].date, val);
+    }
+    for (const snap of snapshots) {
+      if (fills.has(snap.date)) { snap.mep = fills.get(snap.date); snapshotsChanged = true; }
     }
   }
 

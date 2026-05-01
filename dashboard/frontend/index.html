@@ -409,7 +409,7 @@
       <div x-show="usdInfo" x-transition
            class="px-4 py-3 text-sm flex items-start justify-between gap-3"
            style="background:rgba(29,78,216,0.05); border-bottom:1px solid var(--border); color:var(--ink-2);">
-        <span>Tres series: cartera en pesos (izquierda, verde), cartera en dólares MEP (derecha, azul) y tipo de cambio MEP (naranja punteado, sin eje propio). Permite ver si el portafolio crece en términos reales en dólares o solo nominalmente en pesos.</span>
+        <span>Variación porcentual desde el inicio del período: cartera en pesos (verde) y cartera en dólares MEP (azul), ambas en el eje izquierdo (%). Eje derecho: valor del dólar MEP (naranja, punteado). Si ARS sube pero USD queda plano, el retorno real es explicado por la devaluación.</span>
         <button @click="usdInfo = false" class="flex-shrink-0 font-bold" style="color:var(--ink-3);">✕</button>
       </div>
 

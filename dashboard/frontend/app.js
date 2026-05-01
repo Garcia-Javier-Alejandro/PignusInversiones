@@ -928,14 +928,19 @@ function computeCarteraUSDChartData(snapshots, periodo) {
   const visible = cutoff ? allSorted.filter(s => s.date >= cutoff) : allSorted;
   if (visible.length < 2) return null;
 
+  const base    = visible[0];
+  const arsBase = base.totalARS;
+  const usdBase = base.totalARS / base.mep;
+
   const arsData = [];
   const usdData = [];
   const mepData = [];
 
   for (const snap of visible) {
-    const ts = new Date(snap.date + "T12:00:00").getTime();
-    arsData.push({ x: ts, y: snap.totalARS });
-    usdData.push({ x: ts, y: Math.round(snap.totalARS / snap.mep) });
+    const ts  = new Date(snap.date + "T12:00:00").getTime();
+    const usd = snap.totalARS / snap.mep;
+    arsData.push({ x: ts, y: ((snap.totalARS / arsBase) - 1) * 100 });
+    usdData.push({ x: ts, y: ((usd / usdBase) - 1) * 100 });
     mepData.push({ x: ts, y: snap.mep });
   }
 
@@ -969,7 +974,7 @@ function renderCarteraUSDChart(data, periodo) {
         {
           label:            "Cartera ARS",
           data:             computed.arsData,
-          yAxisID:          "yARS",
+          yAxisID:          "yPct",
           borderColor:      "#10b981",
           backgroundColor:  "#10b98118",
           borderWidth:      2,
@@ -981,7 +986,7 @@ function renderCarteraUSDChart(data, periodo) {
         {
           label:            "Cartera USD MEP",
           data:             computed.usdData,
-          yAxisID:          "yUSD",
+          yAxisID:          "yPct",
           borderColor:      "#3b82f6",
           backgroundColor:  "transparent",
           borderWidth:      2,
@@ -1043,8 +1048,10 @@ function renderCarteraUSDChart(data, periodo) {
             },
             label(ctx) {
               if (ctx.parsed.y == null) return null;
-              if (ctx.dataset.yAxisID === "yARS") return ` Cartera ARS: ${formatARS(ctx.parsed.y)}`;
-              if (ctx.dataset.yAxisID === "yUSD") return ` Cartera USD: ${formatUSD(ctx.parsed.y)}`;
+              if (ctx.dataset.yAxisID === "yPct") {
+                const sign = ctx.parsed.y >= 0 ? "+" : "";
+                return ` ${ctx.dataset.label}: ${sign}${ctx.parsed.y.toFixed(1)}%`;
+              }
               return ` MEP: $${Math.round(ctx.parsed.y).toLocaleString("es-AR")}`;
             },
           },
@@ -1066,31 +1073,25 @@ function renderCarteraUSDChart(data, periodo) {
           },
           grid: { color: "#f3f4f6" },
         },
-        yARS: {
+        yPct: {
           type:     "linear",
           position: "left",
           ticks: {
-            color: "#10b981",
+            color: "#6b7280",
             font:  { size: 13 },
-            callback: formatARS,
+            callback: v => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`,
           },
           grid: { color: "#f3f4f6" },
-        },
-        yUSD: {
-          type:     "linear",
-          position: "right",
-          ticks: {
-            color: "#3b82f6",
-            font:  { size: 13 },
-            callback: formatUSD,
-          },
-          grid: { drawOnChartArea: false },
         },
         yMEP: {
           type:     "linear",
           position: "right",
-          display:  false,
-          grid:     { drawOnChartArea: false },
+          ticks: {
+            color: "#f59e0b",
+            font:  { size: 13 },
+            callback: v => `$${Math.round(v).toLocaleString("es-AR")}`,
+          },
+          grid: { drawOnChartArea: false },
         },
       },
     },
