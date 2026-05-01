@@ -494,6 +494,11 @@ function computeHistoryChartData(snapshots, spyPrices, deposits, moneda, periodo
 
   const spyByDate = {};
   for (const p of (spyPrices || [])) spyByDate[p.date] = p.price;
+  // Agregar precios SPY de los depósitos como puntos ancla para períodos sin datos históricos.
+  // Permite dibujar la curva antes de que positions_history tenga datos de SPY.
+  for (const dep of depositsSorted) {
+    if (dep.spyPrice && !spyByDate[dep.date]) spyByDate[dep.date] = dep.spyPrice;
+  }
 
   let spyUnits  = 0;
   let mpCuotas  = 0;

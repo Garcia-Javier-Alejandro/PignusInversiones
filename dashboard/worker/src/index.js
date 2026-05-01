@@ -565,7 +565,7 @@ async function getSPYHistory(env) {
       try {
         const data   = await iolGet(endpoint, token, env);
         const prices = parseSPYPrices(data);
-        if (prices.length === 0) continue;   // este endpoint devolvió data pero vacía o en otro formato
+        if (prices.length === 0) continue;
 
         await env.TOKEN_CACHE.put("spy_history_cache_iol", JSON.stringify({ fetchedAt: Date.now(), prices }));
         console.log(`SPY history: ${prices.length} precios desde ${endpoint.split("?")[0]}`);
@@ -574,12 +574,39 @@ async function getSPYHistory(env) {
         console.warn(`SPY endpoint falló (${endpoint.split("?")[0]}):`, endpointErr.message);
       }
     }
-    console.warn("SPY: todos los endpoints fallaron, usando caché anterior.");
+    console.warn("SPY: todos los endpoints IOL fallaron.");
   } catch (err) {
     console.warn("SPY: error de token/red:", err.message);
   }
 
+  // Fallback: extraer precio de SPY de positions_history (datos reales de IOL guardados en cada snapshot).
+  // Cubre todos los días con snapshot, que son los mismos que se grafican.
+  const spyFromPositions = await getSPYFromPositions(env);
+  if (spyFromPositions.length > 0) {
+    console.log(`SPY history: ${spyFromPositions.length} precios desde positions_history`);
+    // Guardar en caché con TTL corto (1h) para que se combine con datos de IOL si vuelven.
+    await env.TOKEN_CACHE.put("spy_history_cache_iol", JSON.stringify({ fetchedAt: Date.now() - 23 * 3_600_000, prices: spyFromPositions }));
+    return spyFromPositions;
+  }
+
   return cached?.prices || [];
+}
+
+/**
+ * Extrae precios históricos de SPY CEDEAR desde positions_history.
+ * Fuente: cada snapshot guarda las posiciones con valorizado y cantidad.
+ * Precio = valorizado / cantidad → precio unitario exacto en ARS.
+ */
+async function getSPYFromPositions(env) {
+  const posHistory = await kvGet(env, "positions_history", []);
+  return posHistory
+    .map(day => {
+      const spy = (day.activos || []).find(a => a.s === "SPY");
+      if (!spy || !spy.q || !spy.v || spy.q <= 0) return null;
+      return { date: day.date, price: Math.round(spy.v / spy.q) };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 /**
