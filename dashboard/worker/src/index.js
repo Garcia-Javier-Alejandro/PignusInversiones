@@ -566,47 +566,124 @@ async function getSPYHistory(env) {
         const data   = await iolGet(endpoint, token, env);
         const prices = parseSPYPrices(data);
         if (prices.length === 0) continue;
-
         await env.TOKEN_CACHE.put("spy_history_cache_iol", JSON.stringify({ fetchedAt: Date.now(), prices }));
-        console.log(`SPY history: ${prices.length} precios desde ${endpoint.split("?")[0]}`);
+        console.log(`SPY history: ${prices.length} precios desde IOL`);
         return prices;
       } catch (endpointErr) {
-        console.warn(`SPY endpoint falló (${endpoint.split("?")[0]}):`, endpointErr.message);
+        console.warn(`SPY IOL endpoint falló:`, endpointErr.message);
       }
     }
-    console.warn("SPY: todos los endpoints IOL fallaron.");
   } catch (err) {
-    console.warn("SPY: error de token/red:", err.message);
+    console.warn("SPY: error de token:", err.message);
   }
 
-  // Fallback: extraer precio de SPY de positions_history (datos reales de IOL guardados en cada snapshot).
-  // Cubre todos los días con snapshot, que son los mismos que se grafican.
-  const spyFromPositions = await getSPYFromPositions(env);
-  if (spyFromPositions.length > 0) {
-    console.log(`SPY history: ${spyFromPositions.length} precios desde positions_history`);
-    // Guardar en caché con TTL corto (1h) para que se combine con datos de IOL si vuelven.
-    await env.TOKEN_CACHE.put("spy_history_cache_iol", JSON.stringify({ fetchedAt: Date.now() - 23 * 3_600_000, prices: spyFromPositions }));
-    return spyFromPositions;
+  // Fallback: Yahoo Finance → precio SPY en USD × MEP del snapshot → precio CEDEAR en ARS.
+  // El ratio CEDEAR/SPY se deriva de positions_history (datos reales de IOL).
+  const fromYahoo = await getSPYFromYahooFinance(env);
+  if (fromYahoo.length > 0) {
+    await env.TOKEN_CACHE.put("spy_history_cache_iol", JSON.stringify({ fetchedAt: Date.now() - 23 * 3_600_000, prices: fromYahoo }));
+    return fromYahoo;
   }
 
   return cached?.prices || [];
 }
 
 /**
- * Extrae precios históricos de SPY CEDEAR desde positions_history.
- * Fuente: cada snapshot guarda las posiciones con valorizado y cantidad.
- * Precio = valorizado / cantidad → precio unitario exacto en ARS.
+ * Obtiene precios históricos de SPY CEDEAR (ARS) usando Yahoo Finance como fuente.
+ * Fórmula: CEDEAR_ARS = SPY_USD × MEP × ratio
+ * donde ratio = CEDEAR_ARS / (SPY_USD × MEP) se calibra desde positions_history.
  */
-async function getSPYFromPositions(env) {
-  const posHistory = await kvGet(env, "positions_history", []);
-  return posHistory
-    .map(day => {
+async function getSPYFromYahooFinance(env) {
+  try {
+    const periodTo   = Math.floor(Date.now() / 1000);
+    const periodFrom = Math.floor((Date.now() - 400 * 86_400_000) / 1000);
+    const res = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/SPY?interval=1d&period1=${periodFrom}&period2=${periodTo}`,
+      { headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" } }
+    );
+    if (!res.ok) throw new Error(`Yahoo Finance HTTP ${res.status}`);
+
+    const data   = await res.json();
+    const result = data?.chart?.result?.[0];
+    if (!result) throw new Error("Yahoo Finance: sin resultado");
+
+    const timestamps = result.timestamp || [];
+    const closes     = result.indicators?.quote?.[0]?.close || [];
+
+    // SPY USD por fecha (NYSE closing price)
+    const spyUSDByDate = {};
+    for (let i = 0; i < timestamps.length; i++) {
+      if (!closes[i] || closes[i] <= 0) continue;
+      const date = new Date(timestamps[i] * 1000).toISOString().split("T")[0];
+      spyUSDByDate[date] = closes[i];
+    }
+    if (Object.keys(spyUSDByDate).length === 0) throw new Error("Yahoo Finance: sin precios");
+
+    // MEP por fecha (portfolio_history)
+    const snapshots = await kvGet(env, "portfolio_history", []);
+    const mepByDate = {};
+    for (const s of snapshots) {
+      if (s.mep && s.mep > 1) mepByDate[s.date] = s.mep;
+    }
+
+    // Calibrar ratio CEDEAR_ARS / (SPY_USD × MEP) usando positions_history
+    const posHistory = await kvGet(env, "positions_history", []);
+    let ratioSum = 0, ratioCount = 0;
+    for (const day of posHistory) {
       const spy = (day.activos || []).find(a => a.s === "SPY");
-      if (!spy || !spy.q || !spy.v || spy.q <= 0) return null;
-      return { date: day.date, price: Math.round(spy.v / spy.q) };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.date.localeCompare(b.date));
+      if (!spy?.q || !spy?.v || spy.q <= 0) continue;
+      const cedarARS = spy.v / spy.q;
+      const spyUSD   = spyUSDByDate[day.date] ?? nearestSpyUSD(spyUSDByDate, day.date);
+      const mep      = mepByDate[day.date];
+      if (spyUSD && mep) { ratioSum += cedarARS / (spyUSD * mep); ratioCount++; }
+    }
+    // Si no hay positions, usar depósitos para calibrar
+    if (ratioCount === 0) {
+      const deposits = await kvGet(env, "deposits", []);
+      for (const dep of deposits) {
+        if (!dep.spyPrice || !dep.mep) continue;
+        const spyUSD = spyUSDByDate[dep.date] ?? nearestSpyUSD(spyUSDByDate, dep.date);
+        if (spyUSD) { ratioSum += dep.spyPrice / (spyUSD * dep.mep); ratioCount++; }
+      }
+    }
+    if (ratioCount === 0) throw new Error("No hay datos para calibrar ratio CEDEAR/SPY");
+
+    const ratio     = ratioSum / ratioCount;
+    const mepDates  = Object.keys(mepByDate).sort();
+
+    // Generar CEDEAR_ARS = SPY_USD × MEP_interpolado × ratio para cada fecha
+    const prices = [];
+    for (const [date, spyUSD] of Object.entries(spyUSDByDate)) {
+      const mep = mepByDate[date] ?? interpolateMep(mepDates, date, mepByDate);
+      if (!mep) continue;
+      prices.push({ date, price: Math.round(spyUSD * mep * ratio) });
+    }
+
+    console.log(`Yahoo Finance SPY: ${prices.length} precios, ratio=${ratio.toFixed(5)} (${ratioCount} muestras)`);
+    return prices.sort((a, b) => a.date.localeCompare(b.date));
+  } catch (err) {
+    console.warn("Yahoo Finance SPY falló:", err.message);
+    return [];
+  }
+}
+
+/** Precio SPY USD más reciente en o antes de targetDate. */
+function nearestSpyUSD(byDate, targetDate) {
+  let best = null;
+  for (const [d, v] of Object.entries(byDate)) {
+    if (d <= targetDate) best = v;
+  }
+  return best;
+}
+
+/** MEP más cercano (antes o después) para fechas sin snapshot. */
+function interpolateMep(sortedDates, targetDate, mepByDate) {
+  if (!sortedDates.length) return null;
+  let before = null;
+  for (const d of sortedDates) {
+    if (d <= targetDate) before = d;
+  }
+  return before ? mepByDate[before] : mepByDate[sortedDates[0]];
 }
 
 /**
