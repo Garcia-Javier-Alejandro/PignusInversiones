@@ -300,6 +300,44 @@ function calcReturn30d(snapshots, deposits, totalCartera, moneda, mep) {
   };
 }
 
+/** Retorno 30d del dólar MEP: (mep_hoy / mep_base - 1) × 100. */
+function calcMep30dResult(snapshots) {
+  const sorted = [...(snapshots || [])].filter(s => s.mep > 1).sort((a, b) => a.date.localeCompare(b.date));
+  if (sorted.length < 2) return null;
+  const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString().split("T")[0];
+  let base = null;
+  for (const s of sorted) { if (s.date <= cutoff) base = s; }
+  if (!base) base = sorted[0];
+  const curr = sorted[sorted.length - 1];
+  if (base.date === curr.date) return null;
+  return { pct: (curr.mep / base.mep - 1) * 100, mepBase: base.mep, mepCurr: curr.mep, fromDate: base.date };
+}
+
+/**
+ * Retorno 30d de los benchmarks S&P 500 y MP, usando las mismas curvas
+ * simuladas del gráfico histórico (mismo capital invertido, mismas fechas).
+ * Devuelve { spy: { pct, fromDate } | null, mp: { pct, fromDate } | null }.
+ */
+function calcBenchmark30d(snapshots, spyPrices, deposits) {
+  const computed = computeHistoryChartData(snapshots, spyPrices, deposits, "ARS", "todo");
+  if (!computed) return { spy: null, mp: null };
+
+  const cutoffMs = Date.now() - 30 * 86_400_000;
+
+  function ret30d(series) {
+    const valid = series.filter(p => p.y != null && p.y > 0);
+    if (valid.length < 2) return null;
+    const curr = valid[valid.length - 1];
+    let base = null;
+    for (const p of valid) { if (p.x <= cutoffMs) base = p; }
+    if (!base) base = valid[0];
+    if (base === curr) return null;
+    return { pct: (curr.y / base.y - 1) * 100, fromDate: new Date(base.x).toISOString().split("T")[0] };
+  }
+
+  return { spy: ret30d(computed.spyData), mp: ret30d(computed.mpData) };
+}
+
 /**
  * Rendimiento real sobre capital aportado.
  * Fórmula: (valor actual − Σ depósitos) / Σ depósitos × 100
@@ -344,6 +382,7 @@ async function loadHistory(alpineState) {
     patchMepValues(data.snapshots || []);
     alpineState.historyData = data;
     alpineState.deposits    = data.deposits || [];
+    alpineState.spyPrices   = data.spyPrices || [];
     // Si /api/mep falló, usar el mep más reciente guardado en snapshots como fallback.
     if (!alpineState.mep) {
       const snap = [...(data.snapshots || [])].reverse().find(s => s.mep > 1);
@@ -1218,3 +1257,5 @@ window.renderChart        = renderChart;
 window.renderHistoryChart = renderHistoryChart;
 window.renderCarteraUSDChart = renderCarteraUSDChart;
 window.saveMPRate            = saveMPRate;
+window.calcBenchmark30d      = calcBenchmark30d;
+window.calcMep30dResult      = calcMep30dResult;

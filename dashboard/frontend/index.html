@@ -125,6 +125,8 @@
     usdInfo: false,
     treemapInfo: false,
     deposits: [],
+    spyPrices: [],
+    showExperimental: false,
     mpRateInput: '',
     toast: null,
     showToast(msg) {
@@ -142,6 +144,14 @@
     rend30d() {
       if (!this.historyData || !this.portfolio || !this.account) return null;
       return calcReturn30d(this.historyData.snapshots, this.deposits, calcTotalCartera(this.portfolio, this.account), this.moneda, this.mep);
+    },
+    benchmarks30d() {
+      if (!this.historyData) return { spy: null, mp: null };
+      return calcBenchmark30d(this.historyData.snapshots, this.spyPrices, this.deposits);
+    },
+    mep30dResult() {
+      if (!this.historyData) return null;
+      return calcMep30dResult(this.historyData.snapshots);
     },
     init() {
       loadDashboard(this);
@@ -680,6 +690,83 @@
         </div>
       </div>
     </section>
+
+    <!-- ─ Datos en construcción ──────────────────────────────────────────── -->
+    <div x-show="portfolio">
+      <button
+        @click="showExperimental = !showExperimental"
+        class="w-full flex items-center justify-center gap-2 py-2 text-sm font-semibold rounded-lg transition-colors"
+        style="color:var(--ink-3); background:transparent; border:1.5px dashed var(--border);"
+        :style="showExperimental ? 'border-color:var(--border-mid); color:var(--ink-2);' : ''"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0 transition-transform duration-200"
+          :class="showExperimental ? 'rotate-180' : ''"
+          fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+        <span>Datos en construcción</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.78 0-2.674-2.154-1.414-3.414l5-5A2 2 0 0013 10.172V5L12 4" />
+        </svg>
+      </button>
+
+      <div x-show="showExperimental" x-transition class="mt-3 grid grid-cols-3 gap-3">
+
+        <!-- MEP 30d -->
+        <div class="rounded-xl p-4 flex flex-col items-center text-center" style="background:#fff; border:1.5px solid var(--border);">
+          <p class="section-label mb-2">MEP 30d</p>
+          <template x-if="mep30dResult()">
+            <div>
+              <p class="font-bold leading-tight tabular-nums" style="font-size:1.9rem;"
+                :style="mep30dResult().pct >= 0 ? 'color:var(--red)' : 'color:var(--green)'"
+                x-text="formatPct(mep30dResult().pct)"></p>
+              <p class="text-sm mt-1 tabular-nums" style="color:var(--ink-3);">
+                $<span x-text="Math.round(mep30dResult().mepBase).toLocaleString('es-AR')"></span>
+                → $<span x-text="Math.round(mep30dResult().mepCurr).toLocaleString('es-AR')"></span>
+              </p>
+              <p class="text-xs mt-0.5" style="color:var(--border-mid);">
+                desde <span x-text="mep30dResult().fromDate.split('-').reverse().join('/')"></span>
+              </p>
+            </div>
+          </template>
+          <p x-show="!mep30dResult()" class="text-base font-semibold" style="color:var(--border-mid);">—</p>
+        </div>
+
+        <!-- S&P 500 30d -->
+        <div class="rounded-xl p-4 flex flex-col items-center text-center" style="background:#fff; border:1.5px solid var(--border);">
+          <p class="section-label mb-2">S&amp;P 500 30d</p>
+          <template x-if="benchmarks30d().spy">
+            <div>
+              <p class="font-bold leading-tight tabular-nums" style="font-size:1.9rem;"
+                :style="benchmarks30d().spy.pct >= 0 ? 'color:var(--green)' : 'color:var(--red)'"
+                x-text="formatPct(benchmarks30d().spy.pct)"></p>
+              <p class="text-xs mt-1" style="color:var(--border-mid);">
+                desde <span x-text="benchmarks30d().spy.fromDate.split('-').reverse().join('/')"></span>
+              </p>
+            </div>
+          </template>
+          <p x-show="!benchmarks30d().spy" class="text-base font-semibold" style="color:var(--border-mid);">—</p>
+        </div>
+
+        <!-- MP 30d -->
+        <div class="rounded-xl p-4 flex flex-col items-center text-center" style="background:#fff; border:1.5px solid var(--border);">
+          <p class="section-label mb-2">MP 30d</p>
+          <template x-if="benchmarks30d().mp">
+            <div>
+              <p class="font-bold leading-tight tabular-nums" style="font-size:1.9rem;"
+                :style="benchmarks30d().mp.pct >= 0 ? 'color:var(--green)' : 'color:var(--red)'"
+                x-text="formatPct(benchmarks30d().mp.pct)"></p>
+              <p class="text-xs mt-1" style="color:var(--border-mid);">
+                desde <span x-text="benchmarks30d().mp.fromDate.split('-').reverse().join('/')"></span>
+              </p>
+            </div>
+          </template>
+          <p x-show="!benchmarks30d().mp" class="text-base font-semibold" style="color:var(--border-mid);">—</p>
+        </div>
+
+      </div>
+    </div>
 
   </main>
 
