@@ -119,7 +119,6 @@
     sortDir: 'desc',
     historyData: null,
     histInfo: false,
-    mepInfo: false,
     usdInfo: false,
     treemapInfo: false,
     deposits: [],
@@ -158,7 +157,6 @@
         this.$nextTick(() => {
           if (this.historyData) {
             renderHistoryChart(this.historyData, this.moneda, v);
-            renderMEPChart(this.historyData, v);
             renderCarteraUSDChart(this.historyData, v);
           }
         });
@@ -360,36 +358,6 @@
             El gráfico aparece a partir del segundo día de uso.
             <span x-show="historyData?.snapshots?.length === 1">Ya tenés 1 snapshot guardado.</span>
           </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- ─ Gráfico MEP normalizado ───────────────────────────────────────── -->
-    <section x-show="portfolio" class="rounded-xl" style="background:#fff; border:1.5px solid var(--border);">
-
-      <div class="px-4 pt-4 pb-3 flex items-center gap-2"
-           style="border-bottom:1px solid var(--border);">
-        <h2 class="section-label">Retorno vs. MEP</h2>
-        <button @click.stop="mepInfo = !mepInfo"
-          class="w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0 transition-colors"
-          :style="mepInfo ? 'background:var(--blue); color:#fff;' : 'background:var(--border); color:var(--ink-2);'"
-          title="Información sobre el gráfico">i</button>
-      </div>
-
-      <div x-show="mepInfo" x-transition
-           class="px-4 py-3 text-sm flex items-start justify-between gap-3"
-           style="background:rgba(29,78,216,0.05); border-bottom:1px solid var(--border); color:var(--ink-2);">
-        <span>Dos ejes independientes: la cartera en pesos (izquierda, verde) y el dólar MEP (derecha, amarillo). Si ambas curvas se mueven juntas, el MEP explica el retorno en pesos.</span>
-        <button @click="mepInfo = false" class="flex-shrink-0 font-bold" style="color:var(--ink-3);">✕</button>
-      </div>
-
-      <div class="p-4">
-        <div x-show="historyData?.snapshots?.length >= 2" class="h-64">
-          <canvas id="chartMEP"></canvas>
-        </div>
-        <div x-show="!historyData || historyData.snapshots?.length < 2"
-             class="flex items-center justify-center h-44">
-          <p class="text-base" style="color:var(--border-mid);">Sin datos suficientes.</p>
         </div>
       </div>
     </section>

@@ -81,14 +81,10 @@ const PALETA_SECTORES = [
 
 let chartPie     = null;
 let chartHistory = null;
-let chartMEP        = null;
 let chartCarteraUSD = null;
 let _histLastTouchTs    = 0;
 let _histTooltipDismiss = false;
 let _histListenerAdded  = false;
-let _mepLastTouchTs     = 0;
-let _mepTooltipDismiss  = false;
-let _mepListenerAdded   = false;
 let _usdLastTouchTs     = 0;
 let _usdTooltipDismiss  = false;
 let _usdListenerAdded   = false;
@@ -325,7 +321,6 @@ async function loadHistory(alpineState) {
       if (snap) { alpineState.mep = snap.mep; alpineState.mepStale = true; alpineState.mepPar = "snapshot"; }
     }
     renderHistoryChart(data, alpineState.moneda, alpineState.periodoHist);
-    renderMEPChart(data, alpineState.periodoHist);
     renderCarteraUSDChart(data, alpineState.periodoHist);
 
     // Advertir si el último snapshot tiene más de 1 día de antigüedad.
@@ -755,165 +750,6 @@ function renderHistoryChart(data, moneda, periodo) {
   });
 }
 
-// ─── Gráfico Cartera ARS vs MEP (doble eje) ──────────────────────────────────
-
-function computeMEPChartData(snapshots, periodo) {
-  if (!snapshots || snapshots.length < 2) return null;
-
-  const allSorted = [...snapshots]
-    .filter(s => !s.synthetic && s.mep > 1 && s.totalARS > 0)
-    .sort((a, b) => a.date.localeCompare(b.date));
-
-  const cutoff  = periodCutoff(periodo);
-  const visible = cutoff ? allSorted.filter(s => s.date >= cutoff) : allSorted;
-  if (visible.length < 2) return null;
-
-  const arsData = [];
-  const mepData = [];
-
-  for (const snap of visible) {
-    const ts = new Date(snap.date + "T12:00:00").getTime();
-    arsData.push({ x: ts, y: snap.totalARS });
-    mepData.push({ x: ts, y: snap.mep });
-  }
-
-  return { arsData, mepData };
-}
-
-function renderMEPChart(data, periodo) {
-  const canvas = document.getElementById("chartMEP");
-  if (!canvas) return;
-
-  const computed = computeMEPChartData(data.snapshots, periodo);
-  if (!computed) return;
-
-  if (chartMEP) chartMEP.destroy();
-
-  const xMin = computed.arsData[0].x;
-  const xMax = computed.arsData[computed.arsData.length - 1].x;
-
-  if (!_mepListenerAdded) {
-    canvas.addEventListener('touchstart', () => {
-      _mepTooltipDismiss = (chartMEP?.tooltip._active?.length ?? 0) > 0;
-      _mepLastTouchTs = Date.now();
-    }, { passive: true });
-    _mepListenerAdded = true;
-  }
-
-  chartMEP = new Chart(canvas, {
-    type: "line",
-    data: {
-      datasets: [
-        {
-          label:            "Cartera ARS",
-          data:             computed.arsData,
-          yAxisID:          "yARS",
-          borderColor:      "#10b981",
-          backgroundColor:  "#10b98118",
-          borderWidth:      2,
-          tension:          0.3,
-          pointRadius:      0,
-          pointHoverRadius: 4,
-          fill:             true,
-        },
-        {
-          label:            "MEP",
-          data:             computed.mepData,
-          yAxisID:          "yMEP",
-          borderColor:      "#f59e0b",
-          backgroundColor:  "transparent",
-          borderWidth:      2,
-          tension:          0.3,
-          pointRadius:      0,
-          pointHoverRadius: 4,
-          fill:             false,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      events: ["mousemove", "mouseout", "touchstart", "touchmove"],
-      onClick(evt, elements, chart) {
-        const isFromTouch = Date.now() - _mepLastTouchTs < 500;
-        if (!isFromTouch && chart.tooltip._active?.length > 0) {
-          chart.tooltip.setActiveElements([], {});
-          chart.update();
-        } else if (isFromTouch && _mepTooltipDismiss) {
-          chart.tooltip.setActiveElements([], {});
-          chart.update();
-          _mepTooltipDismiss = false;
-        }
-      },
-      plugins: {
-        legend: {
-          position: "top",
-          labels: {
-            color: "#374151",
-            font:  { size: 14 },
-            padding: 8,
-            usePointStyle: true,
-            pointStyle:    "line",
-          },
-        },
-        datalabels: { display: false },
-        annotation:  { annotations: {} },
-        tooltip: {
-          callbacks: {
-            title(items) {
-              if (!items.length) return '';
-              const d = new Date(items[0].parsed.x);
-              return `${String(d.getUTCDate()).padStart(2,"0")}/${String(d.getUTCMonth()+1).padStart(2,"0")}/${d.getUTCFullYear()}`;
-            },
-            label(ctx) {
-              if (ctx.parsed.y == null) return null;
-              if (ctx.dataset.yAxisID === "yARS") return ` Cartera: ${formatARS(ctx.parsed.y)}`;
-              return ` MEP: $${Math.round(ctx.parsed.y).toLocaleString("es-AR")}`;
-            },
-          },
-        },
-      },
-      scales: {
-        x: {
-          type: "linear",
-          min: xMin,
-          max: xMax,
-          ticks: {
-            color: "#9ca3af",
-            font:  { size: 13 },
-            maxTicksLimit: 8,
-            callback(v) {
-              const d = new Date(v);
-              return `${String(d.getUTCDate()).padStart(2,"0")}/${String(d.getUTCMonth()+1).padStart(2,"0")}`;
-            },
-          },
-          grid: { color: "#f3f4f6" },
-        },
-        yARS: {
-          type:     "linear",
-          position: "left",
-          ticks: {
-            color: "#10b981",
-            font:  { size: 13 },
-            callback: formatARS,
-          },
-          grid: { color: "#f3f4f6" },
-        },
-        yMEP: {
-          type:     "linear",
-          position: "right",
-          ticks: {
-            color: "#f59e0b",
-            font:  { size: 13 },
-            callback: v => `$${Math.round(v).toLocaleString("es-AR")}`,
-          },
-          grid: { drawOnChartArea: false },
-        },
-      },
-    },
-  });
-}
 
 // ─── Gráfico Cartera ARS y USD MEP ───────────────────────────────────────────
 
@@ -1320,6 +1156,5 @@ window.formatPct          = formatPct;
 window.formatDateLabel    = formatDateLabel;
 window.renderChart        = renderChart;
 window.renderHistoryChart = renderHistoryChart;
-window.renderMEPChart        = renderMEPChart;
 window.renderCarteraUSDChart = renderCarteraUSDChart;
 window.saveMPRate            = saveMPRate;
