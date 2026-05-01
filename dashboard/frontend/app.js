@@ -750,18 +750,9 @@ function renderHistoryChart(data, moneda, periodo) {
   });
 }
 
-// ─── Gráfico MEP normalizado ──────────────────────────────────────────────────
+// ─── Gráfico Cartera ARS vs MEP (doble eje) ──────────────────────────────────
 
-/**
- * Construye tres series indexadas a 100 en el primer snapshot visible:
- *   - Cartera ARS: retorno en pesos ajustado por depósitos
- *   - MEP:         apreciación del dólar MEP
- *   - Cartera USD: retorno en dólares ajustado por depósitos
- *
- * Si Cartera ARS ≈ MEP → el MEP explicó el retorno.
- * La brecha entre ambas curvas es la "Cartera USD".
- */
-function computeMEPChartData(snapshots, deposits, periodo) {
+function computeMEPChartData(snapshots, periodo) {
   if (!snapshots || snapshots.length < 2) return null;
 
   const allSorted = [...snapshots]
@@ -772,35 +763,23 @@ function computeMEPChartData(snapshots, deposits, periodo) {
   const visible = cutoff ? allSorted.filter(s => s.date >= cutoff) : allSorted;
   if (visible.length < 2) return null;
 
-  const ref     = visible[0];
-  const refMep  = ref.mep;
-  const refUSD  = ref.totalARS / refMep;
-  const depsSorted = [...(deposits || [])].sort((a, b) => a.date.localeCompare(b.date));
-
-  const mepData = [];
   const arsData = [];
-  const usdData = [];
+  const mepData = [];
 
   for (const snap of visible) {
-    const deps   = depsSorted.filter(d => d.date > ref.date && d.date <= snap.date);
-    const depARS = deps.reduce((s, d) => s + (d.amount || 0), 0);
-    const depUSD = deps.reduce((s, d) => s + (d.amount || 0) / (d.mep || snap.mep), 0);
-    const snapUSD = snap.totalARS / snap.mep;
     const ts = new Date(snap.date + "T12:00:00").getTime();
-
-    arsData.push({ x: ts, y: ((snap.totalARS - depARS) / ref.totalARS) * 100 });
-    mepData.push({ x: ts, y: (snap.mep / refMep) * 100 });
-    usdData.push({ x: ts, y: ((snapUSD - depUSD) / refUSD) * 100 });
+    arsData.push({ x: ts, y: snap.totalARS });
+    mepData.push({ x: ts, y: snap.mep });
   }
 
-  return { mepData, arsData, usdData };
+  return { arsData, mepData };
 }
 
 function renderMEPChart(data, periodo) {
   const canvas = document.getElementById("chartMEP");
   if (!canvas) return;
 
-  const computed = computeMEPChartData(data.snapshots, data.deposits, periodo);
+  const computed = computeMEPChartData(data.snapshots, periodo);
   if (!computed) return;
 
   if (chartMEP) chartMEP.destroy();
@@ -821,34 +800,28 @@ function renderMEPChart(data, periodo) {
     data: {
       datasets: [
         {
-          label:           "Cartera ARS",
-          data:            computed.arsData,
-          borderColor:     "#10b981",
-          backgroundColor: "transparent",
-          borderWidth:     2,
-          tension:         0.3,
-          pointRadius:     0,
+          label:            "Cartera ARS",
+          data:             computed.arsData,
+          yAxisID:          "yARS",
+          borderColor:      "#10b981",
+          backgroundColor:  "#10b98118",
+          borderWidth:      2,
+          tension:          0.3,
+          pointRadius:      0,
           pointHoverRadius: 4,
+          fill:             true,
         },
         {
-          label:           "MEP",
-          data:            computed.mepData,
-          borderColor:     "#f59e0b",
-          backgroundColor: "transparent",
-          borderWidth:     2,
-          tension:         0.3,
-          pointRadius:     0,
+          label:            "MEP",
+          data:             computed.mepData,
+          yAxisID:          "yMEP",
+          borderColor:      "#f59e0b",
+          backgroundColor:  "transparent",
+          borderWidth:      2,
+          tension:          0.3,
+          pointRadius:      0,
           pointHoverRadius: 4,
-        },
-        {
-          label:           "Cartera USD",
-          data:            computed.usdData,
-          borderColor:     "#3b82f6",
-          backgroundColor: "transparent",
-          borderWidth:     2,
-          tension:         0.3,
-          pointRadius:     0,
-          pointHoverRadius: 4,
+          fill:             false,
         },
       ],
     },
@@ -880,18 +853,7 @@ function renderMEPChart(data, periodo) {
           },
         },
         datalabels: { display: false },
-        annotation: {
-          annotations: {
-            baseline: {
-              type:        "line",
-              yMin:        100,
-              yMax:        100,
-              borderColor: "#d1d5db",
-              borderWidth: 1,
-              borderDash:  [4, 3],
-            },
-          },
-        },
+        annotation:  { annotations: {} },
         tooltip: {
           callbacks: {
             title(items) {
@@ -901,9 +863,8 @@ function renderMEPChart(data, periodo) {
             },
             label(ctx) {
               if (ctx.parsed.y == null) return null;
-              const pct  = ctx.parsed.y - 100;
-              const sign = pct >= 0 ? "+" : "";
-              return ` ${ctx.dataset.label}: ${sign}${pct.toFixed(1)}%`;
+              if (ctx.dataset.yAxisID === "yARS") return ` Cartera: ${formatARS(ctx.parsed.y)}`;
+              return ` MEP: $${Math.round(ctx.parsed.y).toLocaleString("es-AR")}`;
             },
           },
         },
@@ -924,17 +885,25 @@ function renderMEPChart(data, periodo) {
           },
           grid: { color: "#f3f4f6" },
         },
-        y: {
+        yARS: {
+          type:     "linear",
+          position: "left",
           ticks: {
-            color: "#9ca3af",
+            color: "#10b981",
             font:  { size: 13 },
-            callback(v) {
-              const pct  = v - 100;
-              const sign = pct >= 0 ? "+" : "";
-              return `${sign}${pct.toFixed(0)}%`;
-            },
+            callback: formatARS,
           },
           grid: { color: "#f3f4f6" },
+        },
+        yMEP: {
+          type:     "linear",
+          position: "right",
+          ticks: {
+            color: "#f59e0b",
+            font:  { size: 13 },
+            callback: v => `$${Math.round(v).toLocaleString("es-AR")}`,
+          },
+          grid: { drawOnChartArea: false },
         },
       },
     },
