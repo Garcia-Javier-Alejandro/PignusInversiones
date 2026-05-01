@@ -177,10 +177,10 @@ async function handleHistory(request, env) {
     }
   }
 
-  // Backfill mep: primero intenta argentinadatos.com (fecha exacta o hasta 5 días hábiles atrás).
+  // Backfill mep: 1) lookup estático exacto, 2) argentinadatos.com con fallback a días cercanos.
   for (const snap of snapshots) {
     if (snap.mep == null || snap.mep <= 1) {
-      snap.mep = await fetchMepNearDate(snap.date);
+      snap.mep = MEP_HISTORICO[snap.date] ?? await fetchMepNearDate(snap.date);
       if (snap.mep) snapshotsChanged = true;
     }
   }
@@ -469,6 +469,19 @@ async function fetchMepFromDolarApi() {
   if (!compra || !venta) throw new Error("dolarapi.com: precios ausentes");
   return (compra + venta) / 2;
 }
+
+// Valores históricos exactos de MEP para fechas donde la API externa no tiene datos.
+// Fuente: cotizaciones reales de mercado (compra == venta en todos los casos).
+const MEP_HISTORICO = {
+  "2026-04-01": 1434.04, "2026-04-02": 1434.04, "2026-04-03": 1434.04,
+  "2026-04-06": 1429.57, "2026-04-07": 1430.16, "2026-04-08": 1424.45,
+  "2026-04-09": 1420.86, "2026-04-10": 1412.50, "2026-04-13": 1404.47,
+  "2026-04-14": 1412.09, "2026-04-15": 1398.53, "2026-04-16": 1406.23,
+  "2026-04-17": 1412.53, "2026-04-20": 1414.73, "2026-04-21": 1414.42,
+  "2026-04-22": 1419.84, "2026-04-23": 1424.40, "2026-04-24": 1438.34,
+  "2026-04-27": 1461.73, "2026-04-28": 1447.18, "2026-04-29": 1435.60,
+  "2026-04-30": 1442.43,
+};
 
 async function fetchMepFromArgentinaDatos(date) {
   const [y, m, d] = date.split("-");
