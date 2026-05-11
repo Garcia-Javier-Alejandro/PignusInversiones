@@ -30,7 +30,7 @@ Cuenta administrada en **IOL (InvertirOnline)**, titulares: **Graciela y Fiorell
 Dashboard mobile-first para ver el portafolio en tiempo real. Accesible desde cualquier navegador sin instalar nada.
 
 **URLs de producción:**
-- Frontend: https://inversiones-3f4.pages.dev/
+- Frontend: https://pignusinversiones.pages.dev/
 - Worker API: https://pignus-api.garcia-javier-alejandro.workers.dev
 
 ### Arquitectura
