@@ -12,7 +12,7 @@
  * Variables de entorno requeridas (configurar con `wrangler secret put`):
  *   IOL_USERNAME    — email de la cuenta IOL
  *   IOL_PASSWORD    — contraseña de la cuenta IOL
- *   ALLOWED_ORIGIN  — URL exacta del frontend (ej: https://pignus.pages.dev)
+ *   ALLOWED_ORIGIN  — URL exacta del frontend (ej: https://pignusinversiones.pages.dev)
  *
  * KV Binding requerido (configurar en wrangler.toml):
  *   TOKEN_CACHE     — namespace de KV donde se guarda el token

@@ -11,7 +11,7 @@
 # Secrets que hay que configurar (NUNCA poner aquí):
 #   wrangler secret put IOL_USERNAME
 #   wrangler secret put IOL_PASSWORD
-#   wrangler secret put ALLOWED_ORIGIN   ← URL de Cloudflare Pages (ej: https://pignus.pages.dev)
+#   wrangler secret put ALLOWED_ORIGIN   ← URL de Cloudflare Pages (ej: https://pignusinversiones.pages.dev)
 
 name = "pignus-api"
 main = "src/index.js"

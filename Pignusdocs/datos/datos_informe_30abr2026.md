@@ -180,4 +180,4 @@
 
 **Cuenta IOL:** 2230652
 **Operaciones en abril (últimos 30 días):** 16 operaciones, volumen $6.921.590
-**Dashboard:** https://inversiones-3f4.pages.dev/
+**Dashboard:** https://pignusinversiones.pages.dev/
