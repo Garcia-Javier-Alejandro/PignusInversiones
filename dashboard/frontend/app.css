@@ -1,0 +1,11 @@
+/* app-specific styles for PignusInversiones — loaded after PignusUI */
+
+/* asset type badges */
+.tipo-cedear { background: #dce8ff; color: #1a3a8c; border: 1px solid #bfd0f0; }
+.tipo-accion { background: #ede0ff; color: #4a1a8c; border: 1px solid #d0b8f0; }
+.tipo-bono   { background: #fff3d0; color: #7a4a00; border: 1px solid #f0d898; }
+.tipo-fci    { background: #d8f0e0; color: #1a5c2a; border: 1px solid #a8d8b8; }
+.tipo-other  { background: #f0ece4; color: #6b5f54; border: 1px solid var(--border); }
+
+/* positions table: prevent header wrapping */
+table th { white-space: nowrap !important; }

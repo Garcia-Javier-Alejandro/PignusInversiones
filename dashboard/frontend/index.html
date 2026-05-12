@@ -9,7 +9,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lora:wght@600;700&display=swap" rel="stylesheet">
 
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://pignusui.pages.dev/pignus.css">
+  <link rel="stylesheet" href="app.css">
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
@@ -18,82 +19,7 @@
   <script>Chart.register(ChartDataLabels);</script>
   <script src="app.js"></script>
 
-  <style>
-    /* ── WSJ-inspired palette ─────────────────────────────────────────────── */
-    :root {
-      --cream:      #f5f0e8;
-      --cream-hover:#ede7d9;
-      --card:       #ffffff;
-      --border:     #ddd5c0;
-      --border-mid: #c8bfa8;
-      --ink:        #1c1814;
-      --ink-2:      #5c5248;
-      --ink-3:      #9c8f84;
-      --green:      #1a6b2a;
-      --red:        #c23b22;
-      --blue:       #1d4ed8;
-    }
 
-    body { background-color: var(--cream); color: var(--ink); }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spinner {
-      width: 2.5rem; height: 2.5rem;
-      border: 3px solid var(--border);
-      border-top-color: var(--blue);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    table th { white-space: nowrap !important; }
-
-    /* Scrollbar más visible en la tabla de posiciones */
-    .table-scroll::-webkit-scrollbar { height: 8px; }
-    .table-scroll::-webkit-scrollbar-track { background: var(--cream); border-radius: 4px; }
-    .table-scroll::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
-    .table-scroll::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
-    .table-scroll { scrollbar-width: auto; scrollbar-color: var(--border-mid) var(--cream); }
-
-    /* Filas alternadas */
-    .positions-table tbody tr:nth-child(odd)  { background-color: #fff; }
-    .positions-table tbody tr:nth-child(even) { background-color: var(--cream); }
-    .positions-table tbody tr:hover           { background-color: var(--cream-hover) !important; }
-
-    /* Section label — WSJ style */
-    .section-label {
-      font-size: 0.9rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--ink-3);
-    }
-
-    /* Lora serif for the title only */
-    .title-serif {
-      font-family: 'Lora', Georgia, serif;
-    }
-
-    /* Tipo badges */
-    .tipo-cedear { background:#dce8ff; color:#1a3a8c; border:1px solid #bfd0f0; }
-    .tipo-accion { background:#ede0ff; color:#4a1a8c; border:1px solid #d0b8f0; }
-    .tipo-bono   { background:#fff3d0; color:#7a4a00; border:1px solid #f0d898; }
-    .tipo-fci    { background:#d8f0e0; color:#1a5c2a; border:1px solid #a8d8b8; }
-    .tipo-other  { background:#f0ece4; color:#6b5f54; border:1px solid var(--border); }
-  </style>
-
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            cream:  '#f5f0e8',
-            ink:    '#1c1814',
-            border: '#ddd5c0',
-          }
-        }
-      }
-    };
-  </script>
 </head>
 
 <body
