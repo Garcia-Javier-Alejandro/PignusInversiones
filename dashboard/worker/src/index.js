@@ -47,6 +47,19 @@ const SECTOR_MAP = {
   IOLCAMA: "Liquidez",
 };
 
+// ─── Helpers de CORS ──────────────────────────────────────────────────────────
+
+/**
+ * Verifica si requestOrigin está en la lista de orígenes permitidos.
+ * ALLOWED_ORIGIN puede ser un valor único o una lista separada por comas.
+ * Devuelve el origen coincidente, o null si no está permitido.
+ */
+function resolveOrigin(requestOrigin, allowedSetting) {
+  if (!allowedSetting) return null;
+  const allowed = allowedSetting.split(",").map(s => s.trim());
+  return allowed.includes(requestOrigin) ? requestOrigin : null;
+}
+
 // ─── Entry point del Worker ────────────────────────────────────────────────────
 
 export default {
@@ -61,15 +74,16 @@ export default {
     // ── CORS preflight ──────────────────────────────────────────────────────────
     // Los navegadores mandan un OPTIONS antes del GET real para verificar permisos.
     // Hay que responder 204 con los headers de CORS correctos.
+    const requestOrigin = request.headers.get("Origin") || "";
+    const matchedOrigin = resolveOrigin(requestOrigin, env.ALLOWED_ORIGIN);
     if (request.method === "OPTIONS") {
-      return corsPreflightResponse(env.ALLOWED_ORIGIN);
+      return corsPreflightResponse(matchedOrigin);
     }
 
     // ── Verificar origen ────────────────────────────────────────────────────────
     // Solo aceptamos requests del frontend autorizado. Esto evita que terceros
     // usen nuestro Worker como proxy gratuito hacia IOL.
-    const origin = request.headers.get("Origin") || "";
-    if (env.ALLOWED_ORIGIN && origin !== env.ALLOWED_ORIGIN) {
+    if (env.ALLOWED_ORIGIN && !matchedOrigin) {
       return new Response("Forbidden", { status: 403 });
     }
 
@@ -118,7 +132,7 @@ export default {
       console.error("Worker error:", err.message);
       return jsonResponse(
         { error: err.message },
-        { status: 502, origin: env.ALLOWED_ORIGIN }
+        { status: 502, origin: matchedOrigin }
       );
     }
   },
@@ -142,7 +156,7 @@ export default {
 async function handlePortfolio(request, env) {
   const token = await getValidToken(env);
   const data = await iolGet("/api/v2/portafolio/argentina", token, env);
-  return jsonResponse(data, { origin: env.ALLOWED_ORIGIN });
+  return jsonResponse(data, { origin: request.headers.get("Origin") || "" });
 }
 
 /**
@@ -153,7 +167,7 @@ async function handlePortfolio(request, env) {
 async function handleAccount(request, env) {
   const token = await getValidToken(env);
   const data = await iolGet("/api/v2/estadocuenta", token, env);
-  return jsonResponse(data, { origin: env.ALLOWED_ORIGIN });
+  return jsonResponse(data, { origin: request.headers.get("Origin") || "" });
 }
 
 // ─── Historial y benchmarks ───────────────────────────────────────────────────
@@ -261,7 +275,7 @@ async function handleHistory(request, env) {
     await env.TOKEN_CACHE.put("deposits", JSON.stringify(deposits));
   }
 
-  return jsonResponse({ snapshots, spyPrices, deposits }, { origin: env.ALLOWED_ORIGIN });
+  return jsonResponse({ snapshots, spyPrices, deposits }, { origin: request.headers.get("Origin") || "" });
 }
 
 /**
@@ -338,10 +352,10 @@ function nearestMepForDate(snapshots, targetDate) {
 async function handleSnapshot(request, env) {
   const { totalARS, mep, totalGanancia, activos } = await request.json();
   if (!totalARS || totalARS <= 0) {
-    return jsonResponse({ error: "Invalid data" }, { status: 400, origin: env.ALLOWED_ORIGIN });
+    return jsonResponse({ error: "Invalid data" }, { status: 400, origin: request.headers.get("Origin") || "" });
   }
   const { skipped } = await saveSnapshotToKV({ totalARS, mep, totalGanancia, activos }, env);
-  return jsonResponse({ ok: true, skipped: !!skipped }, { origin: env.ALLOWED_ORIGIN });
+  return jsonResponse({ ok: true, skipped: !!skipped }, { origin: request.headers.get("Origin") || "" });
 }
 
 /**
@@ -445,7 +459,7 @@ async function runDailySnapshot(env) {
  */
 async function handlePositions(request, env) {
   const positions = await kvGet(env, "positions_history", []);
-  return jsonResponse(positions, { origin: env.ALLOWED_ORIGIN });
+  return jsonResponse(positions, { origin: request.headers.get("Origin") || "" });
 }
 
 /**
@@ -519,7 +533,7 @@ async function fetchMepNearDate(date) {
 async function handleMEP(request, env) {
   const cached = await kvGet(env, "mep_cache", null);
   if (cached && (Date.now() - cached.fetchedAt) < 15 * 60_000) {
-    return jsonResponse(cached, { origin: env.ALLOWED_ORIGIN });
+    return jsonResponse(cached, { origin: request.headers.get("Origin") || "" });
   }
 
   // Fuera del horario de mercado (~17:00-11:00 ARG), IOL puede devolver precios cero
@@ -554,7 +568,7 @@ async function handleMEP(request, env) {
           fetchedAt: Date.now(),
         };
         await env.TOKEN_CACHE.put("mep_cache", JSON.stringify(result));
-        return jsonResponse(result, { origin: env.ALLOWED_ORIGIN });
+        return jsonResponse(result, { origin: request.headers.get("Origin") || "" });
       } catch {
         // Este par falló, probar el siguiente
       }
@@ -565,26 +579,26 @@ async function handleMEP(request, env) {
       const mepExterno = await fetchMepFromDolarApi();
       const result = { mep: mepExterno, par: "dolarapi.com", fetchedAt: Date.now() };
       await env.TOKEN_CACHE.put("mep_cache", JSON.stringify(result));
-      return jsonResponse(result, { origin: env.ALLOWED_ORIGIN });
+      return jsonResponse(result, { origin: request.headers.get("Origin") || "" });
     } catch { /* dolarapi.com también falló */ }
 
     // Último recurso: caché KV o último snapshot con MEP
-    if (cached) return jsonResponse({ ...cached, stale: true }, { origin: env.ALLOWED_ORIGIN });
+    if (cached) return jsonResponse({ ...cached, stale: true }, { origin: request.headers.get("Origin") || "" });
     const lastSnapMep = await lastKnownMepFromSnapshots(env);
-    if (lastSnapMep) return jsonResponse({ mep: lastSnapMep, stale: true, par: "snapshot" }, { origin: env.ALLOWED_ORIGIN });
-    return jsonResponse({ error: "MEP no disponible" }, { status: 502, origin: env.ALLOWED_ORIGIN });
+    if (lastSnapMep) return jsonResponse({ mep: lastSnapMep, stale: true, par: "snapshot" }, { origin: request.headers.get("Origin") || "" });
+    return jsonResponse({ error: "MEP no disponible" }, { status: 502, origin: request.headers.get("Origin") || "" });
 
   } catch (err) {
     try {
       const mepExterno = await fetchMepFromDolarApi();
       const result = { mep: mepExterno, par: "dolarapi.com", fetchedAt: Date.now() };
       await env.TOKEN_CACHE.put("mep_cache", JSON.stringify(result));
-      return jsonResponse(result, { origin: env.ALLOWED_ORIGIN });
+      return jsonResponse(result, { origin: request.headers.get("Origin") || "" });
     } catch { /* dolarapi.com también falló */ }
-    if (cached) return jsonResponse({ ...cached, stale: true }, { origin: env.ALLOWED_ORIGIN });
+    if (cached) return jsonResponse({ ...cached, stale: true }, { origin: request.headers.get("Origin") || "" });
     const lastSnapMep = await lastKnownMepFromSnapshots(env);
-    if (lastSnapMep) return jsonResponse({ mep: lastSnapMep, stale: true, par: "snapshot" }, { origin: env.ALLOWED_ORIGIN });
-    return jsonResponse({ error: err.message }, { status: 502, origin: env.ALLOWED_ORIGIN });
+    if (lastSnapMep) return jsonResponse({ mep: lastSnapMep, stale: true, par: "snapshot" }, { origin: request.headers.get("Origin") || "" });
+    return jsonResponse({ error: err.message }, { status: 502, origin: request.headers.get("Origin") || "" });
   }
 }
 
@@ -596,7 +610,7 @@ async function handleMEP(request, env) {
 async function handleMPRate(request, env) {
   const { dailyPct } = await request.json();
   if (dailyPct == null || isNaN(dailyPct) || dailyPct <= 0) {
-    return jsonResponse({ error: "Invalid rate" }, { status: 400, origin: env.ALLOWED_ORIGIN });
+    return jsonResponse({ error: "Invalid rate" }, { status: 400, origin: request.headers.get("Origin") || "" });
   }
 
   const today = new Date().toISOString().split("T")[0];
@@ -606,7 +620,7 @@ async function handleMPRate(request, env) {
   else rates.push({ date: today, dailyPct });
 
   await env.TOKEN_CACHE.put("mp_rates", JSON.stringify(rates));
-  return jsonResponse({ ok: true }, { origin: env.ALLOWED_ORIGIN });
+  return jsonResponse({ ok: true }, { origin: request.headers.get("Origin") || "" });
 }
 
 /**
@@ -791,13 +805,13 @@ function parseSPYPrices(data) {
  */
 async function handleGetDeposits(request, env) {
   const deposits = await kvGet(env, "deposits", []);
-  return jsonResponse(deposits, { origin: env.ALLOWED_ORIGIN });
+  return jsonResponse(deposits, { origin: request.headers.get("Origin") || "" });
 }
 
 async function handleDeposit(request, env) {
   const { date, amount, note, mep } = await request.json();
   if (!date || !amount || amount <= 0) {
-    return jsonResponse({ error: "date y amount requeridos" }, { status: 400, origin: env.ALLOWED_ORIGIN });
+    return jsonResponse({ error: "date y amount requeridos" }, { status: 400, origin: request.headers.get("Origin") || "" });
   }
   const deposits = await kvGet(env, "deposits", []);
   const idx = deposits.findIndex(d => d.date === date);
@@ -806,7 +820,7 @@ async function handleDeposit(request, env) {
   else deposits.push(entry);
   deposits.sort((a, b) => a.date.localeCompare(b.date));
   await env.TOKEN_CACHE.put("deposits", JSON.stringify(deposits));
-  return jsonResponse({ ok: true }, { origin: env.ALLOWED_ORIGIN });
+  return jsonResponse({ ok: true }, { origin: request.headers.get("Origin") || "" });
 }
 
 // ─── Informes ─────────────────────────────────────────────────────────────────
@@ -820,7 +834,7 @@ async function handleReportData(request, env) {
   const from = url.searchParams.get("from");
   const to   = url.searchParams.get("to");
   if (!from || !to) {
-    return jsonResponse({ error: "from y to requeridos" }, { status: 400, origin: env.ALLOWED_ORIGIN });
+    return jsonResponse({ error: "from y to requeridos" }, { status: 400, origin: request.headers.get("Origin") || "" });
   }
 
   const [snapshots, deposits, posHistory, spyPrices] = await Promise.all([
@@ -941,20 +955,20 @@ async function handleReportData(request, env) {
     history,
     spyHistory,
     deposits: depositsForChart,
-  }, { origin: env.ALLOWED_ORIGIN });
+  }, { origin: request.headers.get("Origin") || "" });
 }
 
 /** GET /api/reports — lista los informes generados (metadatos). */
 async function handleGetReports(request, env) {
   const reports = await kvGet(env, "reports_list", []);
-  return jsonResponse(reports, { origin: env.ALLOWED_ORIGIN });
+  return jsonResponse(reports, { origin: request.headers.get("Origin") || "" });
 }
 
 /** POST /api/reports — guarda metadatos de un informe recién generado. */
 async function handleSaveReport(request, env) {
   const { from, to, label } = await request.json();
   if (!from || !to) {
-    return jsonResponse({ error: "from y to requeridos" }, { status: 400, origin: env.ALLOWED_ORIGIN });
+    return jsonResponse({ error: "from y to requeridos" }, { status: 400, origin: request.headers.get("Origin") || "" });
   }
   const reports = await kvGet(env, "reports_list", []);
   const entry = {
@@ -966,7 +980,7 @@ async function handleSaveReport(request, env) {
   };
   reports.unshift(entry);
   await env.TOKEN_CACHE.put("reports_list", JSON.stringify(reports));
-  return jsonResponse({ ok: true, id: entry.id }, { origin: env.ALLOWED_ORIGIN });
+  return jsonResponse({ ok: true, id: entry.id }, { origin: request.headers.get("Origin") || "" });
 }
 
 /** Genera una etiqueta legible para un rango de fechas, ej: "Marzo 2026" o "Mar–Abr 2026" */
