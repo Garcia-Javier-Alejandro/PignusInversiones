@@ -1,0 +1,186 @@
+
+
+<link href="/Content/IOLV6Screens?v=VgH8Z1a-jutD0wcHe6-38EMAFAKiL20eebwZHsC6V4E1" rel="stylesheet"/>
+
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>Operaciones Finalizadas</title>
+</head>
+<body>
+
+    <table border="1" cellpadding="0" cellspacing="0">
+        <tr>
+            <td colspan="16">Operaciones finalizadas en el periodo 1/5/2026 hasta 1/6/2026 </td>
+        </tr>
+        <tr>
+            <td>Fecha Transacci&oacute;n</td>
+            <td>Fecha Liquidaci&oacute;n</td>
+            <td>Boleto</td>
+            <td>Mercado</td>
+            <td>Tipo Transacci&oacute;n</td>
+            <td>Numero de Cuenta</td>
+            <td>Descripci&oacute;n</td>
+            <td>Especie</td>
+            <td>Simbolo</td>
+            <td>Cantidad</td>
+            <td>Moneda</td>
+            <td>Precio Ponderado</td>
+            <td>Monto</td>
+            <td>Comisi&oacute;n y Derecho de Mercado</td>
+            <td>Iva Impuesto</td>
+            <td>Total</td>
+        </tr>
+
+
+                <tr>
+                    <td>7/5/2026 19:26:00</td>
+                    <td>7/5/2026</td>
+                    <td>10510700</td>
+                    <td>-</td>
+                    <td>Suscripci&#243;n FCI</td>
+                    <td>2230652</td>
+                    <td>IOL Cash Management</td>
+                    <td>24668</td>
+                    <td>IOLCAMA</td>
+                    <td>1944,1974</td>
+                    <td style="text-align: center">AR$</td>
+                    <td>11,23</td>
+                    <td>21835,00</td>
+                    <td>0,00</td>
+                    <td>0,00</td>
+                    <td>21835,00</td>
+                </tr>
+                <tr>
+                    <td>11/5/2026 11:13:37</td>
+                    <td>12/5/2026</td>
+                    <td>10675269</td>
+                    <td>BCBA</td>
+                    <td>Venta</td>
+                    <td>2230652</td>
+                    <td>Bono Del Tesoro Boncer 2% $ 2026</td>
+                    <td>5925</td>
+                    <td>TX26</td>
+                    <td>81546,0000</td>
+                    <td style="text-align: center">AR$</td>
+                    <td>684,00</td>
+                    <td>557774,64</td>
+                    <td>2844,65</td>
+                    <td>0,00</td>
+                    <td>554929,99</td>
+                </tr>
+                <tr>
+                    <td>11/5/2026 11:17:25</td>
+                    <td>12/5/2026</td>
+                    <td>10676177</td>
+                    <td>BCBA</td>
+                    <td>Compra</td>
+                    <td>2230652</td>
+                    <td>Cedear Vista Oil &amp; Gas Sab De</td>
+                    <td>8527</td>
+                    <td>VIST</td>
+                    <td>10,0000</td>
+                    <td style="text-align: center">AR$</td>
+                    <td>32260,00</td>
+                    <td>322600,00</td>
+                    <td>1838,82</td>
+                    <td>386,15</td>
+                    <td>324824,97</td>
+                </tr>
+                <tr>
+                    <td>11/5/2026 11:21:29</td>
+                    <td>12/5/2026</td>
+                    <td>10677419</td>
+                    <td>BCBA</td>
+                    <td>Compra</td>
+                    <td>2230652</td>
+                    <td>Cedear Spdr S&amp;P 500</td>
+                    <td>8549</td>
+                    <td>SPY</td>
+                    <td>8,0000</td>
+                    <td style="text-align: center">AR$</td>
+                    <td>55050,00</td>
+                    <td>440400,00</td>
+                    <td>2510,28</td>
+                    <td>527,16</td>
+                    <td>443437,44</td>
+                </tr>
+                <tr>
+                    <td>11/5/2026 11:27:40</td>
+                    <td>12/5/2026</td>
+                    <td>10679159</td>
+                    <td>BCBA</td>
+                    <td>Compra</td>
+                    <td>2230652</td>
+                    <td>Cedear Intel Corporation</td>
+                    <td>8025</td>
+                    <td>INTC</td>
+                    <td>9,0000</td>
+                    <td style="text-align: center">AR$</td>
+                    <td>37560,00</td>
+                    <td>338040,00</td>
+                    <td>1926,83</td>
+                    <td>404,63</td>
+                    <td>340371,46</td>
+                </tr>
+                <tr>
+                    <td>11/5/2026 20:10:00</td>
+                    <td>11/5/2026</td>
+                    <td>10762183</td>
+                    <td>-</td>
+                    <td>Suscripci&#243;n FCI</td>
+                    <td>2230652</td>
+                    <td>IOL Cash Management</td>
+                    <td>24668</td>
+                    <td>IOLCAMA</td>
+                    <td>1410,6427</td>
+                    <td style="text-align: center">AR$</td>
+                    <td>11,26</td>
+                    <td>15881,00</td>
+                    <td>0,00</td>
+                    <td>0,00</td>
+                    <td>15881,00</td>
+                </tr>
+                <tr>
+                    <td>12/5/2026 12:13:45</td>
+                    <td>13/5/2026</td>
+                    <td>10809411</td>
+                    <td>BCBA</td>
+                    <td>Venta</td>
+                    <td>2230652</td>
+                    <td>Grupo Financiero Galicia S.A</td>
+                    <td>534</td>
+                    <td>GGAL</td>
+                    <td>80,0000</td>
+                    <td style="text-align: center">AR$</td>
+                    <td>6305,00</td>
+                    <td>504400,00</td>
+                    <td>2875,08</td>
+                    <td>603,77</td>
+                    <td>500921,15</td>
+                </tr>
+                <tr>
+                    <td>12/5/2026 13:06:38</td>
+                    <td>13/5/2026</td>
+                    <td>10819338</td>
+                    <td>BCBA</td>
+                    <td>Compra</td>
+                    <td>2230652</td>
+                    <td>Cedear Lithium Argentina Ag.</td>
+                    <td>8651</td>
+                    <td>LAR</td>
+                    <td>29,0000</td>
+                    <td style="text-align: center">AR$</td>
+                    <td>16360,00</td>
+                    <td>474440,00</td>
+                    <td>2704,31</td>
+                    <td>567,90</td>
+                    <td>477712,21</td>
+                </tr>
+    </table>
+
+
+
+
+</body>
+</html>

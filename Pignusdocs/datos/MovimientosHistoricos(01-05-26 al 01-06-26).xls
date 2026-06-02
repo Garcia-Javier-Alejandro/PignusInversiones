@@ -1,0 +1,434 @@
+
+<link href="/Content/IOLV6Screens?v=VgH8Z1a-jutD0wcHe6-38EMAFAKiL20eebwZHsC6V4E1" rel="stylesheet"/>
+
+<html>
+<head>
+    <meta name="viewport" content="width=device-width"/>
+    <title>Operaciones Finalizadas</title>
+</head>
+<body>
+    <tr>
+        <td colspan="15">Operaciones Historicas del periodo 1/5/2026 hasta 1/6/2026</td>
+    </tr>
+<table border="1" cellpadding="0" cellspacing="0">
+    <tr>
+        <th>Nro. de Mov.</th>
+        <th>Nro. de Boleto</th>
+        <th style="width: 500px;">Tipo Mov.</th>
+        <th>Concert.</th>
+        <th>Liquid.</th>
+        <th>Est</th>
+        <th>Cant. titulos</th>
+        <th>Precio</th>
+        <th>Comis.</th>
+        <th>Iva Com.</th>
+        <th>Otros Imp.</th>
+        <th>Monto</th>
+        <th>Observaciones</th>
+        <th style="width: 220px;">Tipo Cuenta</th>
+    </tr>
+
+
+            <tr>
+                <td>175655035</td>
+                <td>0</td>
+                <td style="width: 60px;">Pago de Dividendos(SPY)</td>
+                <td>01/06/26</td>
+                <td>                        <span>01/06/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>46</td>
+                <td>0</td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span style="color: #F00">0,00</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>174720790</td>
+                <td>0</td>
+                <td style="width: 60px;">Pago de Dividendos(ADGO)</td>
+                <td>20/05/26</td>
+                <td>                        <span>20/05/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>0</td>
+                <td>0</td>
+                <td>
+                        <span>44,99</span>
+                </td>
+                <td>
+                        <span>9,45</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-54,44</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>174720789</td>
+                <td>0</td>
+                <td style="width: 60px;">Pago de Dividendos(ADGO US$)</td>
+                <td>20/05/26</td>
+                <td>                        <span>20/05/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>0</td>
+                <td>0</td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>5,28</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Dolares</td>
+            </tr>
+            <tr>
+                <td>173773284</td>
+                <td>10819338</td>
+                <td style="width: 60px;">Compra(LAR)</td>
+                <td>12/05/26</td>
+                <td>                        <span>13/05/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>29</td>
+                <td>16360</td>
+                <td>
+                        <span>2.372,20</span>
+                </td>
+                <td>
+                        <span>498,16</span>
+                </td>
+                <td>
+                        <span>401,85</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-477.712,21</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>173759060</td>
+                <td>10809411</td>
+                <td style="width: 60px;">Venta(GGAL)</td>
+                <td>12/05/26</td>
+                <td>                        <span>13/05/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>80</td>
+                <td>6305</td>
+                <td>
+                        <span>2.522,00</span>
+                </td>
+                <td>
+                        <span>529,62</span>
+                </td>
+                <td>
+                        <span>427,23</span>
+                </td>
+                <td>
+                        <span>500.921,15</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>173582808</td>
+                <td>10762183</td>
+                <td style="width: 60px;">Suscripci&#243;n FCI(IOLCAMA)</td>
+                <td>11/05/26</td>
+                <td>                        <span>11/05/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>1410</td>
+                <td>11,258</td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-15.881,00</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>173582605</td>
+                <td>10679159</td>
+                <td style="width: 60px;">Compra(INTC)</td>
+                <td>11/05/26</td>
+                <td>                        <span>12/05/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>9</td>
+                <td>37560</td>
+                <td>
+                        <span>1.690,20</span>
+                </td>
+                <td>
+                        <span>354,94</span>
+                </td>
+                <td>
+                        <span>286,32</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-340.371,46</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>173580087</td>
+                <td>10677419</td>
+                <td style="width: 60px;">Compra(SPY)</td>
+                <td>11/05/26</td>
+                <td>                        <span>12/05/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>8</td>
+                <td>55050</td>
+                <td>
+                        <span>2.202,00</span>
+                </td>
+                <td>
+                        <span>462,42</span>
+                </td>
+                <td>
+                        <span>373,02</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-443.437,44</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>173578314</td>
+                <td>10676177</td>
+                <td style="width: 60px;">Compra(VIST)</td>
+                <td>11/05/26</td>
+                <td>                        <span>12/05/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>10</td>
+                <td>32260</td>
+                <td>
+                        <span>1.613,00</span>
+                </td>
+                <td>
+                        <span>338,73</span>
+                </td>
+                <td>
+                        <span>273,24</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-324.824,97</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>173576504</td>
+                <td>10675269</td>
+                <td style="width: 60px;">Venta(TX26)</td>
+                <td>11/05/26</td>
+                <td>                        <span>12/05/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>81546</td>
+                <td>684</td>
+                <td>
+                        <span>2.788,87</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>55,78</span>
+                </td>
+                <td>
+                        <span>554.929,99</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>173538717</td>
+                <td>0</td>
+                <td style="width: 60px;">Pago de Amortizaci&#243;n(TX26)</td>
+                <td>11/05/26</td>
+                <td>                        <span>11/05/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>0</td>
+                <td>0</td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>544.795,77</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>173538716</td>
+                <td>0</td>
+                <td style="width: 60px;">Pago de Renta(TX26)</td>
+                <td>11/05/26</td>
+                <td>                        <span>11/05/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>0</td>
+                <td>0</td>
+                <td>
+                        <span>16,34</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>10.879,59</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>173448504</td>
+                <td>0</td>
+                <td style="width: 60px;">Pago de Dividendos(GGAL)</td>
+                <td>08/05/26</td>
+                <td>                        <span>08/05/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>0</td>
+                <td>0</td>
+                <td>
+                        <span>52,62</span>
+                </td>
+                <td>
+                        <span>11,05</span>
+                </td>
+                <td>
+                        <span>1.052,45</span>
+                </td>
+                <td>
+                        <span>13.918,88</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>173084873</td>
+                <td>10510700</td>
+                <td style="width: 60px;">Suscripci&#243;n FCI(IOLCAMA)</td>
+                <td>07/05/26</td>
+                <td>                        <span>07/05/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>1944</td>
+                <td>11,2309</td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-21.835,00</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>173105380</td>
+                <td>0</td>
+                <td style="width: 60px;">Pago de Dividendos(ASML)</td>
+                <td>06/05/26</td>
+                <td>                        <span>06/05/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>0</td>
+                <td>0</td>
+                <td>
+                        <span>8,24</span>
+                </td>
+                <td>
+                        <span>1,73</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span style="color: #F00">-9,97</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Pesos</td>
+            </tr>
+            <tr>
+                <td>173105379</td>
+                <td>0</td>
+                <td style="width: 60px;">Pago de Dividendos(ASML US$)</td>
+                <td>06/05/26</td>
+                <td>                        <span>06/05/26</span>
+                </td>
+                <td>Terminada</td>
+                <td>0</td>
+                <td>0</td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,00</span>
+                </td>
+                <td>
+                        <span>0,97</span>
+                </td>
+                <td></td>
+                <td style="width: 30px;">Inversion Argentina Dolares</td>
+            </tr>
+</table>
+</body>
+</html>
