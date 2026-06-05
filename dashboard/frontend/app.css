@@ -1,5 +1,11 @@
 /* app-specific styles for PignusInversiones — loaded after PignusUI */
 
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
 /* asset type badges */
 .tipo-cedear { background: #dce8ff; color: #1a3a8c; border: 1px solid #bfd0f0; }
 .tipo-accion { background: #ede0ff; color: #4a1a8c; border: 1px solid #d0b8f0; }

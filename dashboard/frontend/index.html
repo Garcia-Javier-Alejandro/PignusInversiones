@@ -164,60 +164,69 @@
   </div>
 
   <!-- ── Header ────────────────────────────────────────────────────────────── -->
-  <header class="sticky top-0 z-30" style="background:#fff; border-bottom:2px solid var(--border);">
-    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-
-      <div>
-        <img src="Logo_Pignus_2.png" alt="Pignus-Inversiones"
-             style="height:2.4rem; width:auto; max-width:8rem; display:block;">
-        <p class="section-label mt-1" x-show="updatedAt" style="font-size:0.75rem;">
-          Actualizado: <span x-text="updatedAt" style="color:var(--ink-2);"></span>
-        </p>
-      </div>
-
-      <div class="flex items-center gap-2">
-        <!-- Toggle ARS / MEP -->
-        <button
-          @click="
-            if (moneda === 'ARS' && !mep) { showToast('MEP no disponible'); return; }
-            moneda = moneda === 'ARS' ? 'MEP' : 'ARS'
-          "
-          class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-base font-semibold transition-colors touch-manipulation"
-          :style="moneda === 'MEP'
-            ? 'background:rgba(26,107,42,0.12); color:var(--green); border:1.5px solid rgba(26,107,42,0.3);'
-            : 'background:rgba(29,78,216,0.10); color:var(--blue); border:1.5px solid rgba(29,78,216,0.25);'"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-          </svg>
-          <span x-text="moneda"></span>
-          <span x-show="moneda === 'MEP' && mep" class="opacity-70"
-            x-text="mep ? '$' + Math.round(mep).toLocaleString('es-AR') : ''"></span>
-          <span
-            x-show="mepStale"
-            :title="mepPar ? 'MEP estimado (fuente: ' + mepPar + ')' : 'MEP estimado'"
-            style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#f59e0b; flex-shrink:0;"
-          ></span>
-        </button>
-
-        <!-- Refresh -->
-        <button
-          @click="loadDashboard($data)"
-          :disabled="loading"
-          class="p-2 rounded-lg transition-colors disabled:opacity-40"
-          style="background:var(--cream); border:1.5px solid var(--border);"
-          title="Actualizar datos"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5"
-            :class="loading ? 'animate-spin' : ''"
-            style="color:var(--ink-2);"
-            fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-        </button>
-      </div>
+  <header class="header">
+    <div class="header__brand">
+      <a href="https://pignuslabs.com.ar/" style="display:flex;align-items:center;text-decoration:none">
+        <img src="Logo_Pignus_2.png" alt="Pignus Labs" class="header__logo">
+      </a>
+      <div class="header__rule"></div>
+      <span class="header__wordmark">Inversiones</span>
+    </div>
+    <nav class="mod-nav">
+      <a href="https://pignuslabs.com.ar/" class="mod-nav__item mod-nav__item--icon" aria-label="Portal" title="Portal">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:block" aria-hidden="true">
+          <path d="M3 11l9-8 9 8"/>
+          <path d="M5 10v10a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1V10"/>
+        </svg>
+      </a>
+      <a href="https://facturacion.pignuslabs.com.ar/" class="mod-nav__item">Facturación</a>
+      <a href="https://inventario.pignuslabs.com.ar/" class="mod-nav__item">Inventario</a>
+      <a href="#" class="mod-nav__item mod-nav__item--active">Inversiones</a>
+    </nav>
+    <div class="header__end">
+      <p class="section-label" x-show="updatedAt" style="font-size:0.75rem; white-space:nowrap;">
+        Actualizado: <span x-text="updatedAt" style="color:var(--ink-2);"></span>
+      </p>
+      <!-- Toggle ARS / MEP -->
+      <button
+        @click="
+          if (moneda === 'ARS' && !mep) { showToast('MEP no disponible'); return; }
+          moneda = moneda === 'ARS' ? 'MEP' : 'ARS'
+        "
+        class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-base font-semibold transition-colors touch-manipulation"
+        :style="moneda === 'MEP'
+          ? 'background:rgba(26,107,42,0.12); color:var(--green); border:1.5px solid rgba(26,107,42,0.3);'
+          : 'background:rgba(29,78,216,0.10); color:var(--blue); border:1.5px solid rgba(29,78,216,0.25);'"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+        </svg>
+        <span x-text="moneda"></span>
+        <span x-show="moneda === 'MEP' && mep" class="opacity-70"
+          x-text="mep ? '$' + Math.round(mep).toLocaleString('es-AR') : ''"></span>
+        <span
+          x-show="mepStale"
+          :title="mepPar ? 'MEP estimado (fuente: ' + mepPar + ')' : 'MEP estimado'"
+          style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#f59e0b; flex-shrink:0;"
+        ></span>
+      </button>
+      <!-- Refresh -->
+      <button
+        @click="loadDashboard($data)"
+        :disabled="loading"
+        class="p-2 rounded-lg transition-colors disabled:opacity-40"
+        style="background:var(--cream); border:1.5px solid var(--border);"
+        title="Actualizar datos"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5"
+          :class="loading ? 'animate-spin' : ''"
+          style="color:var(--ink-2);"
+          fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      </button>
     </div>
   </header>
 

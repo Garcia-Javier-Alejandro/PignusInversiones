@@ -53,10 +53,12 @@ const SECTORES = {
   XOM:     "Oil&Gas",
   XLE:     "Oil&Gas",
   SLB:     "Oil&Gas",
+  YPFD:    "Oil&Gas",
   // Tecnología
   ASML:    "Tecnología",
   MELI:    "Tecnología",
   MSFT:    "Tecnología",
+  INTC:    "Tecnología",
   // Materiales estratégicos
   COPX:    "Materiales estratégicos",
   URA:     "Materiales estratégicos",
