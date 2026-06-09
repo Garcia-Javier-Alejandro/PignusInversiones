@@ -305,6 +305,17 @@ async function handleHistory(request, env) {
     await env.TOKEN_CACHE.put("deposits", JSON.stringify(deposits));
   }
 
+  // Excluir del historial de Pignus los depósitos que pertenecen a Graciela.
+  // La auto-detección trabaja sobre el total combinado y registraría los depósitos
+  // de Graciela como depósitos de Pignus. Los filtramos por fecha.
+  const gracielaOps = await kvGet(env, "graciela_operations", []);
+  const gracielaDepositDates = new Set(
+    gracielaOps
+      .filter(op => op.type === "deposit" || op.type === "withdrawal")
+      .map(op => op.date)
+  );
+  deposits = deposits.filter(d => !gracielaDepositDates.has(d.date));
+
   return jsonResponse({ snapshots, spyPrices, deposits }, { origin: request.headers.get("Origin") || "" });
 }
 
