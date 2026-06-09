@@ -127,25 +127,37 @@ async function loadDashboard(alpineState) {
   alpineState.stale   = false;
 
   try {
-    const [portfolio, account, mep] = await Promise.all([
+    // Fetch Pignus split (for display) and combined (for snapshot saving) in parallel.
+    // Snapshot always uses combined data so Graciela's history can be reconstructed retroactively.
+    const [portfolioPignus, accountPignus, portfolioCombined, accountCombined, mep] = await Promise.all([
+      fetchJSON(`${WORKER_URL}/api/portfolio?portfolio=pignus`),
+      fetchJSON(`${WORKER_URL}/api/account?portfolio=pignus`),
       fetchJSON(`${WORKER_URL}/api/portfolio`),
       fetchJSON(`${WORKER_URL}/api/account`),
       fetchMEP(),
     ]);
 
-    if (isValidPortfolio(portfolio)) {
-      alpineState.portfolio  = portfolio;
-      alpineState.account    = account;
+    if (isValidPortfolio(portfolioPignus)) {
+      // Worker only adjusts disponible for the split; recalculate total as activos + disponible.
+      const pesoCuenta = accountPignus?.cuentas?.find(c => c.moneda === "peso_Argentino") || accountPignus?.cuentas?.[0];
+      if (pesoCuenta) {
+        const activosTotal = (portfolioPignus?.activos || []).reduce((s, a) => s + (a.valorizado || 0), 0);
+        pesoCuenta.total = activosTotal + (pesoCuenta.disponible || 0);
+      }
+
+      alpineState.portfolio  = portfolioPignus;
+      alpineState.account    = accountPignus;
       alpineState.mep        = mep.value;
       alpineState.mepStale   = mep.stale;
       alpineState.mepPar     = mep.par;
       alpineState.updatedAt  = horaActual();
-      renderChart(getActivosConCash(portfolio, account), alpineState.chartView, alpineState.chartType);
+      renderChart(getActivosConCash(portfolioPignus, accountPignus), alpineState.chartView, alpineState.chartType);
 
-      // Guardar snapshot diario y cargar historial (fire-and-forget en paralelo)
-      const totalARS = account?.cuentas?.find(c => c.moneda === "peso_Argentino")?.total || 0;
-      const totalGanancia = (portfolio.activos || []).reduce((s, a) => s + (a.gananciaDinero || 0), 0);
-      saveSnapshot(totalARS, mep.value, totalGanancia, portfolio.activos || []);
+      // Save snapshot with combined account total (not Pignus-only).
+      const cuentaCombinada = accountCombined?.cuentas?.find(c => c.moneda === "peso_Argentino");
+      const totalARS        = cuentaCombinada?.total || 0;
+      const totalGanancia   = (portfolioCombined.activos || []).reduce((s, a) => s + (a.gananciaDinero || 0), 0);
+      saveSnapshot(totalARS, mep.value, totalGanancia, portfolioCombined.activos || []);
       loadHistory(alpineState);
     } else {
       alpineState.stale = true;
@@ -380,7 +392,7 @@ function getDisponible(account) {
 
 async function loadHistory(alpineState) {
   try {
-    const data = await fetchJSON(`${WORKER_URL}/api/history`);
+    const data = await fetchJSON(`${WORKER_URL}/api/history?portfolio=pignus`);
     patchMepValues(data.snapshots || []);
     alpineState.historyData = data;
     alpineState.deposits    = data.deposits || [];

@@ -206,9 +206,9 @@ async function handleAccount(request, env) {
  * Si algún snapshot no tiene VCP (guardado antes de esta feature), lo backfilla y persiste.
  */
 async function handleHistory(request, env) {
-  if (new URL(request.url).searchParams.get("portfolio") === "graciela") {
-    return await handleGracielaHistory(request, env);
-  }
+  const portfolioParam = new URL(request.url).searchParams.get("portfolio");
+  if (portfolioParam === "graciela") return await handleGracielaHistory(request, env);
+  if (portfolioParam === "pignus")   return await handlePignusHistory(request, env);
   let   snapshots = await kvGet(env, "portfolio_history", []);
   let   deposits  = await kvGet(env, "deposits", []);
 
@@ -972,6 +972,73 @@ function splitAccountCash(iolAccount, gracielaCash) {
     cuentas: cuentas.map(c => c !== pesoCuenta ? c : { ...c, disponible: disp }),
   });
   return { graciela: withDisp(graDisp), pignus: withDisp(pigDisp) };
+}
+
+/**
+ * GET /api/history?portfolio=pignus
+ * Reconstruye el historial de Pignus restando la porción de Graciela de cada
+ * snapshot combinado. Para fechas anteriores a las operaciones de Graciela,
+ * Pignus = combinado (Graciela aún no tenía posiciones).
+ */
+async function handlePignusHistory(request, env) {
+  const [ops, posHistory, portfolioHistory, spyPrices, deposits] = await Promise.all([
+    kvGet(env, "graciela_operations", []),
+    kvGet(env, "positions_history",   []),
+    kvGet(env, "portfolio_history",   []),
+    getSPYHistory(env),
+    kvGet(env, "deposits",            []),
+  ]);
+
+  const posHistoryByDate = {};
+  for (const p of posHistory) posHistoryByDate[p.date] = p;
+
+  const gracielaDepositDates = new Set(
+    ops.filter(op => op.type === "deposit" || op.type === "withdrawal").map(op => op.date)
+  );
+  const pignusDeposits = deposits.filter(d => !gracielaDepositDates.has(d.date));
+
+  const spyByDate = {};
+  for (const p of spyPrices) spyByDate[p.date] = p.price;
+  const mepByDate = {};
+  for (const s of portfolioHistory) { if (s.mep) mepByDate[s.date] = s.mep; }
+  for (const dep of pignusDeposits) {
+    const freshSpy = spyByDate[dep.date] || nearestSpyPrice(spyPrices, dep.date);
+    if (freshSpy) dep.spyPrice = freshSpy;
+    if (!dep.mep) dep.mep = mepByDate[dep.date] || null;
+  }
+
+  const sortedOps = [...ops].sort((a, b) => a.date.localeCompare(b.date));
+  const snapshots = [];
+
+  for (const combined of portfolioHistory) {
+    const { date } = combined;
+    const dayPos = posHistoryByDate[date];
+    let gracielaTotalARS = 0, gracielaTotalGanancia = 0;
+    if (dayPos) {
+      const opsToDate = sortedOps.filter(op => op.date <= date);
+      const holdings  = computeGracielaPositions(opsToDate);
+      const unitPrice = {};
+      for (const a of (dayPos.activos || [])) { if (a.q > 0) unitPrice[a.s] = a.v / a.q; }
+      for (const [symbol, pos] of Object.entries(holdings)) {
+        const qty = Math.max(0, pos.qty);
+        if (qty === 0 || !unitPrice[symbol]) continue;
+        const value = qty * unitPrice[symbol];
+        gracielaTotalARS      += value;
+        gracielaTotalGanancia += value - qty * pos.avgCost;
+      }
+      gracielaTotalARS += Math.max(0, computeGracielaCash(opsToDate));
+    }
+    snapshots.push({
+      date,
+      totalARS:      Math.round(Math.max(0, combined.totalARS - gracielaTotalARS)),
+      totalGanancia: Math.round((combined.totalGanancia || 0) - gracielaTotalGanancia),
+      mep:   combined.mep   || null,
+      mpVcp: combined.mpVcp || null,
+    });
+  }
+
+  snapshots.sort((a, b) => a.date.localeCompare(b.date));
+  return jsonResponse({ snapshots, spyPrices, deposits: pignusDeposits }, { origin: request.headers.get("Origin") || "" });
 }
 
 /**
