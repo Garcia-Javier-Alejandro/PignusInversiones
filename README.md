@@ -12,9 +12,6 @@ Generación de resúmenes periódicos del estado de las cuentas de inversión, c
 
 ## Cuentas
 
-### Inviu (cuenta 184318)
-Cuenta de referencia. Los resúmenes históricos en `Inviu/` sirven como base de formato y contexto para la generación de nuevos resúmenes.
-
 ### Pignus
 Cuenta administrada en **IOL (InvertirOnline)**, titulares: **Graciela y Fiorella**.
 
@@ -58,6 +55,53 @@ Cloudflare Cron Trigger → scheduled() → runDailySnapshot()
 **Stack frontend:** HTML + Alpine.js v3 + Tailwind CSS (CDN) + Chart.js v4 + chartjs-plugin-datalabels + chartjs-chart-treemap + chartjs-plugin-annotation. Sin build step, sin bundler.
 
 **Stack backend:** Cloudflare Worker (ES modules). KV Namespace `TOKEN_CACHE` para persistencia.
+
+---
+
+### Gestión de dos carteras bajo la misma cuenta IOL
+
+La cuenta IOL tiene un único titular (Graciela) pero administra dos carteras independientes: **Pignus** (la empresa) y **Graciela** (inversiones personales). Ambas conviven en el mismo portafolio IOL, con las mismas posiciones mezcladas.
+
+El dashboard resuelve esta ambigüedad con un sistema de operaciones: las compras/ventas atribuidas a Graciela se registran en `Gra_JSON` (una operación JSON por línea), y el Worker usa esa información para dividir cada posición al vuelo.
+
+#### Archivo `Gra_JSON`
+
+Fuente de verdad para las operaciones de Graciela. Una operación por línea:
+
+```json
+{ "date": "YYYY-MM-DD", "type": "buy|sell", "symbol": "YPFD", "qty": 11, "price": 82597.73 }
+{ "date": "YYYY-MM-DD", "type": "deposit", "amount": 5224680 }
+{ "date": "YYYY-MM-DD", "type": "withdrawal", "amount": 1000000 }
+```
+
+Campos para `buy`/`sell`: `date`, `type`, `symbol`, `qty`, `price` (precio por unidad en ARS).
+Campos para `deposit`/`withdrawal`: `date`, `type`, `amount` (en ARS).
+
+#### Script de sincronización
+
+Cada vez que se actualiza `Gra_JSON`, subir los datos al Worker con:
+
+```bash
+node scripts/sync_graciela.mjs
+```
+
+Esto hace un `PUT /api/graciela/operations/import` que reemplaza el listado completo en KV.
+
+#### Lógica de división (Worker)
+
+- `computeGracielaPositions(ops)` — acumula compras y descuenta ventas para obtener `{ SÍMBOLO: { qty, avgCost } }`. Si hay ventas sin compra previa registrada (dato incompleto), la cantidad queda en negativo y se clampea a 0 al usar el resultado.
+- `computeGracielaCash(ops)` — calcula el efectivo de Graciela: depósitos + ingresos por ventas − egresos por compras.
+- `splitPortfolioActivos(iolPortfolio, gracielaPositions)` — para cada activo IOL: `pignus_qty = iol_qty − graciela_qty` (clampeado a [0, iol_qty]). El costo promedio de Pignus se deduce de `(ppc_total × qty_total − avgCost_graciela × qty_graciela) / pignus_qty`.
+- `splitAccountCash(iolAccount, gracielaCash)` — divide el `disponible` de la cuenta peso entre los dos portafolios.
+
+#### Tab switcher en el frontend
+
+El dashboard tiene dos pestañas: **Pignus** y **Graciela**. Al cambiar de pestaña:
+1. Se guarda el estado actual (Pignus) en memoria.
+2. Se llaman `/api/portfolio?portfolio=graciela`, `/api/account?portfolio=graciela` y `/api/history?portfolio=graciela`.
+3. El total de la cuenta se recalcula en el frontend como `Σ(activos de Graciela) + efectivo de Graciela`.
+4. Se reconstruye el historial de Graciela combinando sus operaciones con los precios históricos de `positions_history`.
+5. Al volver a Pignus, se restaura el estado anterior sin re-fetch.
 
 ---
 
@@ -167,6 +211,7 @@ Cloudflare Cron Trigger → scheduled() → runDailySnapshot()
 | `spy_history_cache_iol` | objeto | `{ fetchedAt, prices: [{date, price}] }` — precios CEDEAR SPY desde IOL bCBA, TTL 24h |
 | `mep_cache` | objeto | `{ mep, fetchedAt }` — MEP cacheado (cualquier fuente), TTL 15 min |
 | `mp_rates` | array | Tasas diarias manuales MP `{ date, dailyPct }` (legado, no usado activamente) |
+| `graciela_operations` | array | Operaciones de Graciela `{ id, date, type, symbol?, qty?, price?, amount?, note? }` — fuente de verdad para la división de carteras |
 
 #### Límites de almacenamiento KV (estimación)
 
@@ -193,6 +238,13 @@ Con ~20 posiciones por día y ~70 bytes/posición comprimida:
 | GET | `/api/deposits` | Lista de depósitos registrados |
 | POST | `/api/deposit` | Registra depósito manual `{ date, amount, note }` (legado) |
 | POST | `/api/mp-rate` | Registra tasa diaria MP manual (legado) |
+| GET | `/api/portfolio?portfolio=pignus\|graciela` | Portafolio dividido: solo las posiciones del sub-portafolio indicado |
+| GET | `/api/account?portfolio=pignus\|graciela` | Estado de cuenta dividido: efectivo disponible del sub-portafolio |
+| GET | `/api/history?portfolio=graciela` | Historial de Graciela reconstruido desde `graciela_operations` + `positions_history` |
+| GET | `/api/graciela/operations` | Lista de operaciones de Graciela |
+| POST | `/api/graciela/operations` | Agrega una operación individual |
+| PUT | `/api/graciela/operations/import` | Reemplaza el listado completo (usado por `sync_graciela.mjs`) |
+| DELETE | `/api/graciela/operations/:id` | Elimina una operación por id |
 
 ---
 
@@ -283,7 +335,9 @@ Inversiones/
 │       ├── index.html            ← UI (Alpine.js + Tailwind + Chart.js, todo CDN)
 │       ├── app.js                ← toda la lógica JS: fetch, cálculos, gráficos
 │       └── _headers              ← headers de seguridad HTTP para Pages
+├── Gra_JSON                          ← operaciones de Graciela (una por línea, JSON)
 ├── scripts/
+│   ├── sync_graciela.mjs         ← sube Gra_JSON al Worker (PUT /api/graciela/operations/import)
 │   └── test_iol_api.py           ← test de conexión a la API de IOL
 ├── Pignus/
 │   ├── datos/                    ← CSVs exportados desde IOL

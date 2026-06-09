@@ -54,10 +54,38 @@
     spyPrices: [],
     showExperimental: false,
     mpRateInput: '',
+    activeTab: 'pignus',
+    savedPignus: null,
     toast: null,
     showToast(msg) {
       this.toast = msg;
       setTimeout(() => this.toast = null, 3500);
+    },
+    switchTab(tab) {
+      if (tab === this.activeTab) return;
+      if (tab === 'graciela') {
+        this.savedPignus = {
+          portfolio:   this.portfolio,
+          account:     this.account,
+          historyData: this.historyData,
+          deposits:    this.deposits,
+          spyPrices:   this.spyPrices,
+        };
+        this.activeTab = tab;
+        loadGraciela(this);
+      } else {
+        this.activeTab = tab;
+        if (this.savedPignus) {
+          Object.assign(this, this.savedPignus);
+          this.$nextTick(() => {
+            if (this.portfolio) renderChart(getActivosConCash(this.portfolio, this.account), this.chartView, this.chartType);
+            if (this.historyData) {
+              renderHistoryChart(this.historyData, this.moneda, this.periodoHist);
+              renderCarteraUSDChart(this.historyData, this.periodoUSD);
+            }
+          });
+        }
+      }
     },
     sortBy(col) {
       if (this.sortCol === col) {
@@ -229,6 +257,24 @@
       </button>
     </div>
   </header>
+
+  <!-- ── Tab switcher ────────────────────────────────────────────────────────── -->
+  <div class="max-w-3xl mx-auto px-4 pt-4 pb-0 flex gap-2" x-show="!loading || portfolio">
+    <button
+      @click="switchTab('pignus')"
+      class="px-5 py-2 text-sm font-semibold rounded-lg transition-colors"
+      :style="activeTab === 'pignus'
+        ? 'background:var(--ink); color:#f5f0e8;'
+        : 'background:#fff; color:var(--ink-2); border:1.5px solid var(--border);'"
+    >Pignus</button>
+    <button
+      @click="switchTab('graciela')"
+      class="px-5 py-2 text-sm font-semibold rounded-lg transition-colors"
+      :style="activeTab === 'graciela'
+        ? 'background:var(--ink); color:#f5f0e8;'
+        : 'background:#fff; color:var(--ink-2); border:1.5px solid var(--border);'"
+    >Graciela</button>
+  </div>
 
   <!-- ── Contenido principal ───────────────────────────────────────────────── -->
   <main class="max-w-3xl mx-auto px-4 py-6 space-y-6" x-show="!loading || portfolio">

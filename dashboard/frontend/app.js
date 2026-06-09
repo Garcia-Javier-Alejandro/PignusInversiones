@@ -476,6 +476,51 @@ async function saveSnapshot(totalARS, mep, totalGanancia, activos) {
   }
 }
 
+/**
+ * Carga los datos de la cartera de Graciela (portafolio dividido) y los vuelca
+ * en las variables principales de Alpine para que todo el HTML existente funcione
+ * sin modificaciones. El estado de Pignus se restaura cuando se vuelve a esa pestaña.
+ */
+async function loadGraciela(alpineState) {
+  alpineState.loading = true;
+  alpineState.error   = null;
+  try {
+    const [portfolio, account, historyData] = await Promise.all([
+      fetchJSON(`${WORKER_URL}/api/portfolio?portfolio=graciela`),
+      fetchJSON(`${WORKER_URL}/api/account?portfolio=graciela`),
+      fetchJSON(`${WORKER_URL}/api/history?portfolio=graciela`),
+    ]);
+
+    // Corregir el total de la cuenta: IOL devuelve el total combinado,
+    // pero para Graciela queremos solo el valor de sus activos + su efectivo.
+    const pesoCuenta = account?.cuentas?.find(c => c.moneda === "peso_Argentino") || account?.cuentas?.[0];
+    if (pesoCuenta) {
+      const activosTotal = (portfolio?.activos || []).reduce((s, a) => s + (a.valorizado || 0), 0);
+      pesoCuenta.total = activosTotal + (pesoCuenta.disponible || 0);
+    }
+
+    patchMepValues(historyData.snapshots || []);
+
+    alpineState.portfolio   = portfolio;
+    alpineState.account     = account;
+    alpineState.historyData = historyData;
+    alpineState.deposits    = historyData.deposits  || [];
+    alpineState.spyPrices   = historyData.spyPrices || [];
+    alpineState.updatedAt   = horaActual();
+
+    renderChart(getActivosConCash(portfolio, account), alpineState.chartView, alpineState.chartType);
+    alpineState.$nextTick(() => {
+      renderHistoryChart(historyData, alpineState.moneda, alpineState.periodoHist);
+      renderCarteraUSDChart(historyData, alpineState.periodoUSD);
+    });
+  } catch (err) {
+    alpineState.error = err.message;
+    console.error("Error cargando cartera Graciela:", err);
+  } finally {
+    alpineState.loading = false;
+  }
+}
+
 /** Registra un depósito o retiro y recarga el historial. */
 async function saveDeposit(alpineState) {
   const date   = alpineState.depositDate;
@@ -1261,3 +1306,4 @@ window.renderCarteraUSDChart = renderCarteraUSDChart;
 window.saveMPRate            = saveMPRate;
 window.calcBenchmark30d      = calcBenchmark30d;
 window.calcMep30dResult      = calcMep30dResult;
+window.loadGraciela          = loadGraciela;

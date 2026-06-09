@@ -1,0 +1,4 @@
+{ "date": "2026-06-08", "type": "buy", "symbol": "YPFD", "qty": 11, "price": 82597.73 }
+{ "date": "2026-06-08", "type": "buy", "symbol": "TZXO6", "qty": 1222120, "price": 163.10 }
+{ "date": "2026-06-08", "type": "buy", "symbol": "IOLCAMA", "qty": 92801.9785, "price": 11.46 }
+{ "date": "2026-06-08", "type": "deposit", "amount": 5224680.00}

@@ -125,6 +125,19 @@ export default {
       if (url.pathname === "/api/reports" && request.method === "POST") {
         return await handleSaveReport(request, env);
       }
+      if (url.pathname === "/api/graciela/operations" && request.method === "GET") {
+        return await handleGetGracielaOps(request, env);
+      }
+      if (url.pathname === "/api/graciela/operations" && request.method === "POST") {
+        return await handleAddGracielaOp(request, env);
+      }
+      if (url.pathname === "/api/graciela/operations/import" && request.method === "PUT") {
+        return await handleImportGracielaOps(request, env);
+      }
+      if (url.pathname.startsWith("/api/graciela/operations/") && request.method === "DELETE") {
+        const opId = url.pathname.split("/").pop();
+        return await handleDeleteGracielaOp(request, env, opId);
+      }
       return new Response("Not found", { status: 404 });
     } catch (err) {
       // Si algo falla (IOL caído, token inválido, etc.), devolvemos el error
@@ -154,8 +167,15 @@ export default {
  * Devuelve el portafolio completo con todas las posiciones valorizadas.
  */
 async function handlePortfolio(request, env) {
+  const portfolioParam = new URL(request.url).searchParams.get("portfolio");
   const token = await getValidToken(env);
-  const data = await iolGet("/api/v2/portafolio/argentina", token, env);
+  const data  = await iolGet("/api/v2/portafolio/argentina", token, env);
+  if (portfolioParam === "graciela" || portfolioParam === "pignus") {
+    const ops        = await kvGet(env, "graciela_operations", []);
+    const gracielaPos = computeGracielaPositions(ops);
+    const split      = splitPortfolioActivos(data, gracielaPos);
+    return jsonResponse({ ...data, activos: split[portfolioParam] }, { origin: request.headers.get("Origin") || "" });
+  }
   return jsonResponse(data, { origin: request.headers.get("Origin") || "" });
 }
 
@@ -165,8 +185,15 @@ async function handlePortfolio(request, env) {
  * Devuelve el estado de cuenta con el saldo disponible en pesos.
  */
 async function handleAccount(request, env) {
+  const portfolioParam = new URL(request.url).searchParams.get("portfolio");
   const token = await getValidToken(env);
-  const data = await iolGet("/api/v2/estadocuenta", token, env);
+  const data  = await iolGet("/api/v2/estadocuenta", token, env);
+  if (portfolioParam === "graciela" || portfolioParam === "pignus") {
+    const ops         = await kvGet(env, "graciela_operations", []);
+    const gracielaCash = computeGracielaCash(ops);
+    const split       = splitAccountCash(data, gracielaCash);
+    return jsonResponse(split[portfolioParam], { origin: request.headers.get("Origin") || "" });
+  }
   return jsonResponse(data, { origin: request.headers.get("Origin") || "" });
 }
 
@@ -179,6 +206,9 @@ async function handleAccount(request, env) {
  * Si algún snapshot no tiene VCP (guardado antes de esta feature), lo backfilla y persiste.
  */
 async function handleHistory(request, env) {
+  if (new URL(request.url).searchParams.get("portfolio") === "graciela") {
+    return await handleGracielaHistory(request, env);
+  }
   let   snapshots = await kvGet(env, "portfolio_history", []);
   let   deposits  = await kvGet(env, "deposits", []);
 
@@ -823,6 +853,223 @@ async function handleDeposit(request, env) {
   return jsonResponse({ ok: true }, { origin: request.headers.get("Origin") || "" });
 }
 
+// ─── Cartera Graciela ─────────────────────────────────────────────────────────
+
+/**
+ * Deriva las posiciones actuales de Graciela desde sus operaciones de compra/venta.
+ * Devuelve { SIMBOLO: { qty, totalCost, avgCost } }.
+ * qty puede quedar negativa si hay ventas sin compra registrada (dato incompleto);
+ * los consumidores deben clampear a Math.max(0, qty).
+ */
+function computeGracielaPositions(ops) {
+  const positions = {};
+  const sorted = [...ops]
+    .filter(o => o.type === "buy" || o.type === "sell")
+    .sort((a, b) => a.date.localeCompare(b.date));
+  for (const op of sorted) {
+    const { symbol, qty, price } = op;
+    if (!symbol || qty == null || qty <= 0 || price == null) continue;
+    if (!positions[symbol]) positions[symbol] = { qty: 0, totalCost: 0 };
+    if (op.type === "buy") {
+      positions[symbol].qty       += qty;
+      positions[symbol].totalCost += qty * price;
+    } else {
+      const avgCost = positions[symbol].qty > 0
+        ? positions[symbol].totalCost / positions[symbol].qty
+        : price;
+      positions[symbol].qty       -= qty;
+      positions[symbol].totalCost  = Math.max(0, positions[symbol].totalCost - avgCost * qty);
+    }
+  }
+  for (const pos of Object.values(positions)) {
+    pos.avgCost = pos.qty > 0 ? pos.totalCost / pos.qty : 0;
+  }
+  return positions;
+}
+
+/**
+ * Efectivo de Graciela: depósitos + ingresos por ventas − egresos por compras.
+ */
+function computeGracielaCash(ops) {
+  let cash = 0;
+  for (const op of [...ops].sort((a, b) => a.date.localeCompare(b.date))) {
+    if      (op.type === "deposit")    cash += op.amount || 0;
+    else if (op.type === "withdrawal") cash -= op.amount || 0;
+    else if (op.type === "buy")        cash -= (op.qty || 0) * (op.price || 0);
+    else if (op.type === "sell")       cash += (op.qty || 0) * (op.price || 0);
+  }
+  return cash;
+}
+
+/**
+ * Divide los activos del portafolio IOL en { graciela, pignus }.
+ * Para cada símbolo la cantidad de Graciela se clampea a [0, iol_qty].
+ * El costo promedio de Pignus se deduce del costo total IOL menos el de Graciela.
+ */
+function splitPortfolioActivos(iolPortfolio, gracielaPositions) {
+  const gracielaActivos = [];
+  const pignusActivos   = [];
+  for (const activo of (iolPortfolio?.activos || [])) {
+    const symbol    = activo.titulo?.simbolo || activo.simbolo || "";
+    const iolQty    = activo.cantidad   || 0;
+    const iolValue  = activo.valorizado || 0;
+    const unitPrice = iolQty > 0 ? iolValue / iolQty : 0;
+    const graPos    = gracielaPositions[symbol];
+    const graQty    = graPos ? Math.max(0, Math.min(graPos.qty, iolQty)) : 0;
+    const graAvgCost = graPos?.avgCost || 0;
+    const graValue  = graQty * unitPrice;
+    const graCost   = graQty * graAvgCost;
+    const graGain   = graValue - graCost;
+    const graGainPct = graAvgCost > 0 ? ((unitPrice / graAvgCost) - 1) * 100 : 0;
+    const pigQty    = iolQty - graQty;
+    const pigValue  = iolValue - graValue;
+    const iolTotalCost = (activo.ppc || 0) * iolQty;
+    const pigCost   = Math.max(0, iolTotalCost - graCost);
+    const pigPpc    = pigQty > 0 ? pigCost / pigQty : (activo.ppc || 0);
+    const pigGain   = (activo.gananciaDinero || 0) - graGain;
+    const pigGainPct = pigCost > 0 ? (pigGain / pigCost) * 100 : 0;
+    if (graQty > 0) {
+      gracielaActivos.push({
+        ...activo,
+        cantidad: graQty, valorizado: graValue, ppc: graAvgCost,
+        gananciaDinero: graGain, gananciaPorcentaje: graGainPct,
+      });
+    }
+    if (pigQty > 0) {
+      pignusActivos.push({
+        ...activo,
+        cantidad: pigQty, valorizado: pigValue, ppc: pigPpc,
+        gananciaDinero: pigGain, gananciaPorcentaje: pigGainPct,
+      });
+    }
+  }
+  return { graciela: gracielaActivos, pignus: pignusActivos };
+}
+
+/**
+ * Divide el efectivo disponible de la cuenta IOL entre Graciela y Pignus.
+ * El `total` de la cuenta lo corrige el frontend sumando activos + disponible.
+ */
+function splitAccountCash(iolAccount, gracielaCash) {
+  const cuentas    = iolAccount?.cuentas || [];
+  const pesoCuenta = cuentas.find(c => c.moneda === "peso_Argentino") || cuentas[0];
+  const totalDisp  = pesoCuenta?.disponible || 0;
+  const graDisp    = Math.min(Math.max(0, gracielaCash), totalDisp);
+  const pigDisp    = totalDisp - graDisp;
+  const withDisp   = (disp) => ({
+    ...iolAccount,
+    cuentas: cuentas.map(c => c !== pesoCuenta ? c : { ...c, disponible: disp }),
+  });
+  return { graciela: withDisp(graDisp), pignus: withDisp(pigDisp) };
+}
+
+/**
+ * GET /api/history?portfolio=graciela
+ * Reconstruye el historial de Graciela combinando sus operaciones con
+ * los precios históricos almacenados en positions_history.
+ */
+async function handleGracielaHistory(request, env) {
+  const [ops, posHistory, portfolioHistory, spyPrices] = await Promise.all([
+    kvGet(env, "graciela_operations", []),
+    kvGet(env, "positions_history",   []),
+    kvGet(env, "portfolio_history",   []),
+    getSPYHistory(env),
+  ]);
+
+  const mepByDate   = {};
+  const mpVcpByDate = {};
+  for (const s of portfolioHistory) {
+    if (s.mep)   mepByDate[s.date]   = s.mep;
+    if (s.mpVcp) mpVcpByDate[s.date] = s.mpVcp;
+  }
+
+  // Depósitos / retiros de Graciela para el benchmark
+  const deposits = ops
+    .filter(op => op.type === "deposit" || op.type === "withdrawal")
+    .map(op => ({
+      date:     op.date,
+      amount:   op.type === "withdrawal" ? -(op.amount || 0) : (op.amount || 0),
+      note:     op.note || (op.type === "deposit" ? "Depósito Graciela" : "Retiro Graciela"),
+      auto:     false,
+      mep:      mepByDate[op.date]   || null,
+      mpVcp:    mpVcpByDate[op.date] || null,
+      spyPrice: nearestSpyPrice(spyPrices, op.date),
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  // Un snapshot por cada entrada en positions_history
+  const sortedOps = [...ops].sort((a, b) => a.date.localeCompare(b.date));
+  const snapshots = [];
+  for (const dayPos of posHistory) {
+    const { date, activos } = dayPos;
+    const opsToDate  = sortedOps.filter(op => op.date <= date);
+    const holdings   = computeGracielaPositions(opsToDate);
+    const unitPriceMap = {};
+    for (const a of (activos || [])) {
+      if (a.q > 0) unitPriceMap[a.s] = a.v / a.q;
+    }
+    let totalARS = 0, totalGanancia = 0;
+    for (const [symbol, pos] of Object.entries(holdings)) {
+      const qty = Math.max(0, pos.qty);
+      if (qty === 0 || !unitPriceMap[symbol]) continue;
+      const value = qty * unitPriceMap[symbol];
+      totalARS      += value;
+      totalGanancia += value - qty * pos.avgCost;
+    }
+    totalARS += Math.max(0, computeGracielaCash(opsToDate));
+    if (totalARS > 0) {
+      snapshots.push({
+        date,
+        totalARS:      Math.round(totalARS),
+        totalGanancia: Math.round(totalGanancia),
+        mep:   mepByDate[date]   || null,
+        mpVcp: mpVcpByDate[date] || null,
+      });
+    }
+  }
+  snapshots.sort((a, b) => a.date.localeCompare(b.date));
+  return jsonResponse({ snapshots, spyPrices, deposits }, { origin: request.headers.get("Origin") || "" });
+}
+
+/** GET /api/graciela/operations */
+async function handleGetGracielaOps(request, env) {
+  const ops = await kvGet(env, "graciela_operations", []);
+  return jsonResponse(ops, { origin: request.headers.get("Origin") || "" });
+}
+
+/** POST /api/graciela/operations — agrega una operación */
+async function handleAddGracielaOp(request, env) {
+  const op = await request.json();
+  if (!op.date || !op.type) {
+    return jsonResponse({ error: "date y type requeridos" }, { status: 400, origin: request.headers.get("Origin") || "" });
+  }
+  const ops = await kvGet(env, "graciela_operations", []);
+  op.id = crypto.randomUUID();
+  ops.push(op);
+  ops.sort((a, b) => a.date.localeCompare(b.date));
+  await env.TOKEN_CACHE.put("graciela_operations", JSON.stringify(ops));
+  return jsonResponse({ ok: true, id: op.id }, { origin: request.headers.get("Origin") || "" });
+}
+
+/** DELETE /api/graciela/operations/:id */
+async function handleDeleteGracielaOp(request, env, id) {
+  const ops = await kvGet(env, "graciela_operations", []);
+  await env.TOKEN_CACHE.put("graciela_operations", JSON.stringify(ops.filter(op => op.id !== id)));
+  return jsonResponse({ ok: true }, { origin: request.headers.get("Origin") || "" });
+}
+
+/** PUT /api/graciela/operations/import — reemplaza todo el listado */
+async function handleImportGracielaOps(request, env) {
+  const ops = await request.json();
+  if (!Array.isArray(ops)) {
+    return jsonResponse({ error: "Array esperado" }, { status: 400, origin: request.headers.get("Origin") || "" });
+  }
+  for (const op of ops) if (!op.id) op.id = crypto.randomUUID();
+  ops.sort((a, b) => a.date.localeCompare(b.date));
+  await env.TOKEN_CACHE.put("graciela_operations", JSON.stringify(ops));
+  return jsonResponse({ ok: true, count: ops.length }, { origin: request.headers.get("Origin") || "" });
+}
+
 // ─── Informes ─────────────────────────────────────────────────────────────────
 
 /**
@@ -1175,7 +1422,7 @@ function jsonResponse(data, { status = 200, origin = "*" } = {}) {
     headers: {
       "Content-Type": "application/json;charset=UTF-8",
       "Access-Control-Allow-Origin": origin || "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "Cache-Control": "no-store",
     },
@@ -1192,7 +1439,7 @@ function corsPreflightResponse(allowedOrigin) {
     status: 204,
     headers: {
       "Access-Control-Allow-Origin": allowedOrigin || "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "Access-Control-Max-Age": "86400",
     },
