@@ -965,8 +965,10 @@ function splitAccountCash(iolAccount, gracielaCash) {
   const cuentas    = iolAccount?.cuentas || [];
   const pesoCuenta = cuentas.find(c => c.moneda === "peso_Argentino") || cuentas[0];
   const totalDisp  = pesoCuenta?.disponible || 0;
-  const graDisp    = Math.min(Math.max(0, gracielaCash), totalDisp);
-  const pigDisp    = totalDisp - graDisp;
+  // Pignus is fully invested with no idle cash. If Graciela has positive
+  // computed cash she gets the full account balance; otherwise Pignus gets it.
+  const graDisp = gracielaCash > 0 ? totalDisp : 0;
+  const pigDisp = totalDisp - graDisp;
   const withDisp   = (disp) => ({
     ...iolAccount,
     cuentas: cuentas.map(c => c !== pesoCuenta ? c : { ...c, disponible: disp }),
