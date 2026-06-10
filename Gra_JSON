@@ -1,12 +1,12 @@
-{ "date": "2026-06-08", "type": "buy", "symbol": "YPFD", "qty": 11, "price": 82597.73 }
-{ "date": "2026-06-08", "type": "buy", "symbol": "TZXO6", "qty": 1222120, "price": 1.631 }
-{ "date": "2026-06-08", "type": "buy", "symbol": "IOLCAMA", "qty": 92801.9785, "price": 11.46 }
-{ "date": "2026-06-09", "type": "buy", "symbol": "YPFD", "qty": 11, "price": 82000.00 }
-{ "date": "2026-06-09", "type": "buy", "symbol": "YPFD", "qty": 6, "price": 80625 }
-{ "date": "2026-06-09", "type": "buy", "symbol": "TZXO6", "qty": 242644, "price": 1.633 }
-{ "date": "2026-06-09", "type": "buy", "symbol": "GGAL", "qty": 27, "price": 7465 }
-{ "date": "2026-06-09", "type": "buy", "symbol": "IOLCAMA", "qty": 60442.1483, "price": 11.47 }
 { "date": "2026-06-07", "type": "deposit", "amount": 3524680.00}
 { "date": "2026-06-08", "type": "deposit", "amount": 1700000.00}
+{ "date": "2026-06-08", "type": "buy", "symbol": "YPFD",   "qty": 11,          "price": 82597.73 }
+{ "date": "2026-06-08", "type": "buy", "symbol": "TZXO6",  "qty": 1222120,     "price": 1.631    }
+{ "date": "2026-06-08", "type": "buy", "symbol": "IOLCAMA","qty": 92801.9785,  "price": 11.46    }
 { "date": "2026-06-09", "type": "deposit", "amount": 1000000.00}
-{ "date": "2026-06-10", "type": "sell", "symbol": "YPFD", "qty": 5, "price": 83499.50, "note": "Liquidación deuda Pignus"}
+{ "date": "2026-06-09", "type": "buy", "symbol": "YPFD",   "qty": 11,          "price": 82000.00 }
+{ "date": "2026-06-09", "type": "buy", "symbol": "YPFD",   "qty": 6,           "price": 80625    }
+{ "date": "2026-06-09", "type": "buy", "symbol": "TZXO6",  "qty": 242644,      "price": 1.633    }
+{ "date": "2026-06-09", "type": "buy", "symbol": "GGAL",   "qty": 27,          "price": 7465     }
+{ "date": "2026-06-09", "type": "buy", "symbol": "IOLCAMA","qty": 60442.1483,  "price": 11.47    }
+{ "date": "2026-06-10", "type": "sell", "symbol": "YPFD",  "qty": 5,           "price": 83499.50, "note": "Liquidación deuda Pignus" }
