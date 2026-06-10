@@ -632,6 +632,21 @@ function computeHistoryChartData(snapshots, spyPrices, deposits, moneda, periodo
     if (dep.spyPrice && !spyByDate[dep.date]) spyByDate[dep.date] = dep.spyPrice;
   }
 
+  // Pre-build nearest-mpVcp lookup from ALL snapshots so deposits at snapshots
+  // with null mpVcp (e.g. first snapshot before any CAFCI data) still get a VCP.
+  const mpVcpMap = {};
+  for (const s of allSorted) {
+    if (s.mpVcp) mpVcpMap[s.date] = s.mpVcp;
+  }
+  function nearestMpVcp(targetDate) {
+    let best = null, bestDiff = Infinity;
+    for (const [d, vcp] of Object.entries(mpVcpMap)) {
+      const diff = Math.abs(new Date(d + "T12:00:00") - new Date(targetDate + "T12:00:00"));
+      if (diff < bestDiff) { bestDiff = diff; best = vcp; }
+    }
+    return best;
+  }
+
   let spyUnits  = 0;
   let mpCuotas  = 0;
   let lastMpVcp = null;
@@ -652,7 +667,7 @@ function computeHistoryChartData(snapshots, spyPrices, deposits, moneda, periodo
     for (const dep of periodDeposits) {
       const depSpy = dep.spyPrice || nearestSPYPrice(spyByDate, dep.date);
       if (depSpy)                      spyUnits += (dep.amount * (1 - 0.003)) / depSpy;
-      const depMpVcp = dep.mpVcp || mpVcp;
+      const depMpVcp = dep.mpVcp || mpVcp || nearestMpVcp(dep.date);
       if (depMpVcp)                    mpCuotas += dep.amount / depMpVcp;
     }
     lastDate = snap.date;
