@@ -392,18 +392,24 @@ function getDisponible(account) {
 
 async function loadHistory(alpineState) {
   try {
-    const data = await fetchJSON(`${WORKER_URL}/api/history?portfolio=pignus`);
+    const [data, gracielaData] = await Promise.all([
+      fetchJSON(`${WORKER_URL}/api/history?portfolio=pignus`),
+      fetchJSON(`${WORKER_URL}/api/history?portfolio=graciela`).catch(() => null),
+    ]);
     patchMepValues(data.snapshots || []);
-    alpineState.historyData = data;
-    alpineState.deposits    = data.deposits || [];
-    alpineState.spyPrices   = data.spyPrices || [];
+    if (gracielaData) patchMepValues(gracielaData.snapshots || []);
+    alpineState.historyData         = data;
+    alpineState.deposits            = data.deposits  || [];
+    alpineState.spyPrices           = data.spyPrices || [];
+    alpineState.otherHistoryData    = gracielaData;
+    alpineState.otherPortfolioLabel = 'Graciela';
     // Si /api/mep falló, usar el mep más reciente guardado en snapshots como fallback.
     if (!alpineState.mep) {
       const snap = [...(data.snapshots || [])].reverse().find(s => s.mep > 1);
       if (snap) { alpineState.mep = snap.mep; alpineState.mepStale = true; alpineState.mepPar = "snapshot"; }
     }
-    renderHistoryChart(data, alpineState.moneda, alpineState.periodoHist);
-    renderCarteraUSDChart(data, alpineState.periodoUSD);
+    renderHistoryChart(data, alpineState.moneda, alpineState.periodoHist, gracielaData, 'Graciela', 'Pignus');
+    renderCarteraUSDChart(data, alpineState.periodoUSD, gracielaData, 'Graciela');
 
     // Advertir si el último snapshot tiene más de 1 día de antigüedad.
     // Indica que el guardado automático viene fallando o el dashboard no se abrió.
@@ -513,17 +519,21 @@ async function loadGraciela(alpineState) {
 
     patchMepValues(historyData.snapshots || []);
 
-    alpineState.portfolio   = portfolio;
-    alpineState.account     = account;
-    alpineState.historyData = historyData;
-    alpineState.deposits    = historyData.deposits  || [];
-    alpineState.spyPrices   = historyData.spyPrices || [];
-    alpineState.updatedAt   = horaActual();
+    const pignusHistoryData = alpineState.savedPignus?.historyData || null;
+
+    alpineState.portfolio           = portfolio;
+    alpineState.account             = account;
+    alpineState.historyData         = historyData;
+    alpineState.deposits            = historyData.deposits  || [];
+    alpineState.spyPrices           = historyData.spyPrices || [];
+    alpineState.otherHistoryData    = pignusHistoryData;
+    alpineState.otherPortfolioLabel = 'Pignus';
+    alpineState.updatedAt           = horaActual();
 
     renderChart(getActivosConCash(portfolio, account), alpineState.chartView, alpineState.chartType);
     alpineState.$nextTick(() => {
-      renderHistoryChart(historyData, alpineState.moneda, alpineState.periodoHist);
-      renderCarteraUSDChart(historyData, alpineState.periodoUSD);
+      renderHistoryChart(historyData, alpineState.moneda, alpineState.periodoHist, pignusHistoryData, 'Pignus', 'Graciela');
+      renderCarteraUSDChart(historyData, alpineState.periodoUSD, pignusHistoryData, 'Pignus');
     });
   } catch (err) {
     alpineState.error = err.message;
@@ -732,7 +742,7 @@ function formatDateLabel(dateStr) {
   return `${d}/${m}/${y}`;
 }
 
-function renderHistoryChart(data, moneda, periodo) {
+function renderHistoryChart(data, moneda, periodo, otherData, otherLabel, activeLabel) {
   const canvas = document.getElementById("chartHistory");
   if (!canvas) return;
 
@@ -746,6 +756,25 @@ function renderHistoryChart(data, moneda, periodo) {
   const xMin = computed.pignusData[0].x;
   const lastValid = [...computed.pignusData].reverse().find(p => p.y != null);
   const xMax = lastValid ? lastValid.x : computed.pignusData[computed.pignusData.length - 1].x;
+
+  // Overlay: other portfolio normalized to start at same value as active portfolio.
+  // Tooltip shows % return from period start (equals real % return since scale is linear).
+  let overlayData = null;
+  let overlayStartY = null;
+  if (otherData) {
+    const otherComputed = computeHistoryChartData(
+      otherData.snapshots, otherData.spyPrices, otherData.deposits, moneda, periodo
+    );
+    if (otherComputed && otherComputed.pignusData.length >= 2) {
+      const activeFirst = computed.pignusData.find(p => p.y != null);
+      const otherFirst  = otherComputed.pignusData.find(p => p.y != null);
+      if (activeFirst?.y && otherFirst?.y) {
+        const scale = activeFirst.y / otherFirst.y;
+        overlayData    = otherComputed.pignusData.map(p => ({ x: p.x, y: p.y != null ? p.y * scale : null }));
+        overlayStartY  = overlayData.find(p => p.y != null)?.y ?? null;
+      }
+    }
+  }
 
   // Anotaciones: línea vertical punteada por cada depósito visible
   const annotations = {};
@@ -784,44 +813,61 @@ function renderHistoryChart(data, moneda, periodo) {
     _histListenerAdded = true;
   }
 
+  const histDatasets = [
+    {
+      label:            activeLabel || "Pignus",
+      data:             computed.pignusData,
+      borderColor:      "#10b981",
+      backgroundColor:  "#10b98118",
+      borderWidth:      2,
+      tension:          0.3,
+      pointRadius:      0,
+      pointHoverRadius: 4,
+      fill:             true,
+    },
+    {
+      label:            "S&P 500",
+      data:             computed.spyData,
+      borderColor:      "#f97316",
+      backgroundColor:  "transparent",
+      borderWidth:      2,
+      tension:          0.3,
+      pointRadius:      0,
+      pointHoverRadius: 4,
+      fill:             false,
+    },
+    {
+      label:            "MP",
+      data:             computed.mpData,
+      borderColor:      "#3b82f6",
+      backgroundColor:  "transparent",
+      borderWidth:      2,
+      tension:          0.3,
+      pointRadius:      0,
+      pointHoverRadius: 4,
+      fill:             false,
+    },
+  ];
+  if (overlayData) {
+    histDatasets.push({
+      label:            otherLabel || "Otra",
+      data:             overlayData,
+      borderColor:      "#a78bfa",
+      backgroundColor:  "transparent",
+      borderWidth:      2,
+      borderDash:       [5, 4],
+      tension:          0.3,
+      pointRadius:      0,
+      pointHoverRadius: 4,
+      fill:             false,
+    });
+  }
+  const overlayDatasetIndex = overlayData ? histDatasets.length - 1 : -1;
+
   chartHistory = new Chart(canvas, {
     type: "line",
     data: {
-      datasets: [
-        {
-          label:           "Pignus",
-          data:            computed.pignusData,
-          borderColor:     "#10b981",
-          backgroundColor: "#10b98118",
-          borderWidth:     2,
-          tension:         0.3,
-          pointRadius:     0,
-          pointHoverRadius: 4,
-          fill:            true,
-        },
-        {
-          label:           "S&P 500",
-          data:            computed.spyData,
-          borderColor:     "#f97316",
-          backgroundColor: "transparent",
-          borderWidth:     2,
-          tension:         0.3,
-          pointRadius:     0,
-          pointHoverRadius: 4,
-          fill:            false,
-        },
-        {
-          label:           "MP",
-          data:            computed.mpData,
-          borderColor:     "#3b82f6",
-          backgroundColor: "transparent",
-          borderWidth:     2,
-          tension:         0.3,
-          pointRadius:     0,
-          pointHoverRadius: 4,
-          fill:            false,
-        },
-      ],
+      datasets: histDatasets,
     },
     options: {
       responsive: true,
@@ -862,6 +908,11 @@ function renderHistoryChart(data, moneda, periodo) {
             },
             label(ctx) {
               if (ctx.parsed.y == null) return null;
+              if (overlayStartY && ctx.datasetIndex === overlayDatasetIndex) {
+                const pct  = ((ctx.parsed.y / overlayStartY) - 1) * 100;
+                const sign = pct >= 0 ? "+" : "";
+                return ` ${ctx.dataset.label}: ${sign}${pct.toFixed(1)}%`;
+              }
               return ` ${ctx.dataset.label}: ${fmtY(ctx.parsed.y)}`;
             },
           },
@@ -956,7 +1007,7 @@ function computeCarteraUSDChartData(snapshots, deposits, periodo) {
   return { arsData, usdData, mepData };
 }
 
-function renderCarteraUSDChart(data, periodo) {
+function renderCarteraUSDChart(data, periodo, otherData, otherLabel) {
   const canvas = document.getElementById("chartCarteraUSD");
   if (!canvas) return;
 
@@ -967,6 +1018,12 @@ function renderCarteraUSDChart(data, periodo) {
 
   const xMin = computed.arsData[0].x;
   const xMax = computed.arsData[computed.arsData.length - 1].x;
+
+  // Overlay: other portfolio ARS TWR (no normalization needed — both start at 0%).
+  let otherComputed = null;
+  if (otherData) {
+    otherComputed = computeCarteraUSDChartData(otherData.snapshots, otherData.deposits, periodo);
+  }
 
   if (!_usdListenerAdded) {
     canvas.addEventListener("touchstart", () => {
@@ -1017,6 +1074,34 @@ function renderCarteraUSDChart(data, periodo) {
           pointHoverRadius: 4,
           fill:             false,
         },
+        ...(otherComputed ? [
+          {
+            label:            `${otherLabel || "Otra"} ARS`,
+            data:             otherComputed.arsData,
+            yAxisID:          "yPct",
+            borderColor:      "#a78bfa",
+            backgroundColor:  "transparent",
+            borderWidth:      2,
+            borderDash:       [5, 4],
+            tension:          0.3,
+            pointRadius:      0,
+            pointHoverRadius: 4,
+            fill:             false,
+          },
+          {
+            label:            `${otherLabel || "Otra"} USD`,
+            data:             otherComputed.usdData,
+            yAxisID:          "yPct",
+            borderColor:      "#f472b6",
+            backgroundColor:  "transparent",
+            borderWidth:      2,
+            borderDash:       [5, 4],
+            tension:          0.3,
+            pointRadius:      0,
+            pointHoverRadius: 4,
+            fill:             false,
+          },
+        ] : []),
       ],
     },
     options: {

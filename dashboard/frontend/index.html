@@ -56,6 +56,8 @@
     mpRateInput: '',
     activeTab: 'pignus',
     savedPignus: null,
+    otherHistoryData: null,
+    otherPortfolioLabel: null,
     toast: null,
     showToast(msg) {
       this.toast = msg;
@@ -65,11 +67,13 @@
       if (tab === this.activeTab) return;
       if (tab === 'graciela') {
         this.savedPignus = {
-          portfolio:   this.portfolio,
-          account:     this.account,
-          historyData: this.historyData,
-          deposits:    this.deposits,
-          spyPrices:   this.spyPrices,
+          portfolio:          this.portfolio,
+          account:            this.account,
+          historyData:        this.historyData,
+          deposits:           this.deposits,
+          spyPrices:          this.spyPrices,
+          otherHistoryData:   this.otherHistoryData,
+          otherPortfolioLabel: this.otherPortfolioLabel,
         };
         this.activeTab = tab;
         loadGraciela(this);
@@ -80,8 +84,8 @@
           this.$nextTick(() => {
             if (this.portfolio) renderChart(getActivosConCash(this.portfolio, this.account), this.chartView, this.chartType);
             if (this.historyData) {
-              renderHistoryChart(this.historyData, this.moneda, this.periodoHist);
-              renderCarteraUSDChart(this.historyData, this.periodoUSD);
+              renderHistoryChart(this.historyData, this.moneda, this.periodoHist, this.otherHistoryData, this.otherPortfolioLabel, 'Pignus');
+              renderCarteraUSDChart(this.historyData, this.periodoUSD, this.otherHistoryData, this.otherPortfolioLabel);
             }
           });
         }
@@ -117,17 +121,17 @@
       });
       this.$watch('moneda', v => {
         this.$nextTick(() => {
-          if (this.historyData) renderHistoryChart(this.historyData, v, this.periodoHist);
+          if (this.historyData) renderHistoryChart(this.historyData, v, this.periodoHist, this.otherHistoryData, this.otherPortfolioLabel, this.activeTab === 'pignus' ? 'Pignus' : 'Graciela');
         });
       });
       this.$watch('periodoHist', v => {
         this.$nextTick(() => {
-          if (this.historyData) renderHistoryChart(this.historyData, this.moneda, v);
+          if (this.historyData) renderHistoryChart(this.historyData, this.moneda, v, this.otherHistoryData, this.otherPortfolioLabel, this.activeTab === 'pignus' ? 'Pignus' : 'Graciela');
         });
       });
       this.$watch('periodoUSD', v => {
         this.$nextTick(() => {
-          if (this.historyData) renderCarteraUSDChart(this.historyData, v);
+          if (this.historyData) renderCarteraUSDChart(this.historyData, v, this.otherHistoryData, this.otherPortfolioLabel);
         });
       });
     },
