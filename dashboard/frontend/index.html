@@ -250,10 +250,10 @@
   <div
     @click.self="showFeedback = false"
     @keydown.escape.window="showFeedback = false"
-    style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:400;display:flex;align-items:flex-end;justify-content:center"
+    class="modal-overlay modal-overlay--centered"
   >
     <div
-      style="width:100%;max-width:600px;background:var(--card);border-radius:1rem 1rem 0 0;padding:1.25rem;max-height:90vh;overflow-y:auto"
+      class="modal modal--tall"
       @click.stop
     >
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
