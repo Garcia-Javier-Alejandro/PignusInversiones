@@ -59,6 +59,56 @@
     otherHistoryData: null,
     otherPortfolioLabel: null,
     toast: null,
+    showFeedback: false,
+    feedbackMode: 'bug',
+    feedbackScreen: '',
+    feedbackTried: '', feedbackExpected: '', feedbackHappened: '', feedbackImpact: '',
+    feedbackProposed: '', feedbackJustification: '',
+    feedbackErrors: {},
+    feedbackDone: false,
+    feedbackLoading: false,
+    feedbackServerErr: '',
+    openFeedback() {
+      this.feedbackScreen = window.location.pathname;
+      this.feedbackMode = 'bug';
+      this.feedbackTried = ''; this.feedbackExpected = ''; this.feedbackHappened = ''; this.feedbackImpact = '';
+      this.feedbackProposed = ''; this.feedbackJustification = '';
+      this.feedbackErrors = {}; this.feedbackDone = false; this.feedbackServerErr = '';
+      this.showFeedback = true;
+    },
+    switchFeedbackMode(mode) {
+      this.feedbackMode = mode;
+      this.feedbackErrors = {};
+      this.feedbackServerErr = '';
+    },
+    async submitFeedback() {
+      const errs = {};
+      if (this.feedbackMode === 'bug') {
+        if (!this.feedbackTried.trim())    errs.tried    = 'Este campo es requerido';
+        if (!this.feedbackExpected.trim()) errs.expected = 'Este campo es requerido';
+        if (!this.feedbackHappened.trim()) errs.happened = 'Este campo es requerido';
+      } else {
+        if (!this.feedbackProposed.trim())     errs.proposed     = 'Este campo es requerido';
+        if (!this.feedbackJustification.trim()) errs.justification = 'Este campo es requerido';
+      }
+      this.feedbackErrors = errs;
+      if (Object.keys(errs).length) return;
+      this.feedbackLoading = true;
+      this.feedbackServerErr = '';
+      const payload = this.feedbackMode === 'bug'
+        ? { type: 'bug', screen: this.feedbackScreen, tried: this.feedbackTried, expected: this.feedbackExpected, happened: this.feedbackHappened, impact: this.feedbackImpact || undefined }
+        : { type: 'feature_request', screen: this.feedbackScreen, proposed_change: this.feedbackProposed, justification: this.feedbackJustification };
+      try {
+        const res = await fetch(`${WORKER_URL}/api/feedback`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
+        if (!res.ok) throw new Error('Error al enviar');
+        this.feedbackDone = true;
+        setTimeout(() => { this.showFeedback = false; }, 1500);
+      } catch (e) {
+        this.feedbackServerErr = e.message || 'Error al enviar el reporte';
+      } finally {
+        this.feedbackLoading = false;
+      }
+    },
     showToast(msg) {
       this.toast = msg;
       setTimeout(() => this.toast = null, 3500);
@@ -195,6 +245,103 @@
     <button @click="snapshotWarning = null" class="ml-4 font-bold opacity-80 hover:opacity-100">✕</button>
   </div>
 
+  <!-- ── Feedback modal ──────────────────────────────────────────────────────── -->
+  <template x-if="showFeedback">
+  <div
+    @click.self="showFeedback = false"
+    @keydown.escape.window="showFeedback = false"
+    style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:400;display:flex;align-items:flex-end;justify-content:center"
+  >
+    <div
+      style="width:100%;max-width:600px;background:var(--card);border-radius:1rem 1rem 0 0;padding:1.25rem;max-height:90vh;overflow-y:auto"
+      @click.stop
+    >
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+        <span style="font-weight:600;font-size:1rem" x-text="feedbackMode === 'bug' ? 'Reportar un problema' : 'Sugerir una mejora'"></span>
+        <button @click="showFeedback = false" class="iconbtn" type="button" aria-label="Cerrar">✕</button>
+      </div>
+
+      <!-- Success -->
+      <p x-show="feedbackDone" style="text-align:center;padding:2rem 0;font-size:.875rem;color:var(--ink-2)">Reporte enviado con éxito</p>
+
+      <template x-if="!feedbackDone">
+        <div>
+          <!-- Mode toggle -->
+          <div style="display:flex;gap:.5rem;margin-bottom:1rem">
+            <button
+              @click="switchFeedbackMode('bug')"
+              type="button"
+              :style="feedbackMode === 'bug' ? 'flex:1;background:var(--ink);color:#f5f0e8;border:none;border-radius:.5rem;padding:.5rem;font-size:.875rem;font-weight:600;cursor:pointer' : 'flex:1;background:var(--card);color:var(--ink-2);border:1.5px solid var(--border);border-radius:.5rem;padding:.5rem;font-size:.875rem;cursor:pointer'"
+            >Problema</button>
+            <button
+              @click="switchFeedbackMode('feature_request')"
+              type="button"
+              :style="feedbackMode === 'feature_request' ? 'flex:1;background:var(--ink);color:#f5f0e8;border:none;border-radius:.5rem;padding:.5rem;font-size:.875rem;font-weight:600;cursor:pointer' : 'flex:1;background:var(--card);color:var(--ink-2);border:1.5px solid var(--border);border-radius:.5rem;padding:.5rem;font-size:.875rem;cursor:pointer'"
+            >Mejora</button>
+          </div>
+
+          <!-- Screen -->
+          <div style="display:flex;flex-direction:column;gap:.3rem;margin-bottom:.75rem">
+            <label style="font-size:.875rem;font-weight:600">Pantalla</label>
+            <input x-model="feedbackScreen" type="text" style="padding:.5rem .625rem;border:1px solid var(--border);border-radius:.5rem;font-family:inherit;font-size:.875rem;background:var(--card);color:var(--ink);width:100%;box-sizing:border-box">
+          </div>
+
+          <!-- Bug fields -->
+          <template x-if="feedbackMode === 'bug'">
+            <div>
+              <div style="display:flex;flex-direction:column;gap:.3rem;margin-bottom:.75rem">
+                <label style="font-size:.875rem;font-weight:600">¿Qué intentaste hacer? <span style="color:var(--err)">*</span></label>
+                <textarea x-model="feedbackTried" rows="2" style="width:100%;box-sizing:border-box;padding:.5rem .625rem;border:1px solid var(--border);border-radius:.5rem;font-family:inherit;font-size:.875rem;background:var(--card);color:var(--ink);resize:vertical"></textarea>
+                <span x-show="feedbackErrors.tried" x-text="feedbackErrors.tried" style="font-size:.75rem;color:var(--err)"></span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.3rem;margin-bottom:.75rem">
+                <label style="font-size:.875rem;font-weight:600">¿Qué esperabas que pasara? <span style="color:var(--err)">*</span></label>
+                <textarea x-model="feedbackExpected" rows="2" style="width:100%;box-sizing:border-box;padding:.5rem .625rem;border:1px solid var(--border);border-radius:.5rem;font-family:inherit;font-size:.875rem;background:var(--card);color:var(--ink);resize:vertical"></textarea>
+                <span x-show="feedbackErrors.expected" x-text="feedbackErrors.expected" style="font-size:.75rem;color:var(--err)"></span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.3rem;margin-bottom:.75rem">
+                <label style="font-size:.875rem;font-weight:600">¿Qué pasó en realidad? <span style="color:var(--err)">*</span></label>
+                <textarea x-model="feedbackHappened" rows="2" style="width:100%;box-sizing:border-box;padding:.5rem .625rem;border:1px solid var(--border);border-radius:.5rem;font-family:inherit;font-size:.875rem;background:var(--card);color:var(--ink);resize:vertical"></textarea>
+                <span x-show="feedbackErrors.happened" x-text="feedbackErrors.happened" style="font-size:.75rem;color:var(--err)"></span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.3rem;margin-bottom:.75rem">
+                <label style="font-size:.875rem;font-weight:600">¿Por qué es un problema? <span style="font-weight:400;color:var(--ink-3)">(opcional)</span></label>
+                <textarea x-model="feedbackImpact" rows="2" style="width:100%;box-sizing:border-box;padding:.5rem .625rem;border:1px solid var(--border);border-radius:.5rem;font-family:inherit;font-size:.875rem;background:var(--card);color:var(--ink);resize:vertical"></textarea>
+              </div>
+            </div>
+          </template>
+
+          <!-- Feature fields -->
+          <template x-if="feedbackMode === 'feature_request'">
+            <div>
+              <div style="display:flex;flex-direction:column;gap:.3rem;margin-bottom:.75rem">
+                <label style="font-size:.875rem;font-weight:600">¿Qué cambio implementarías? <span style="color:var(--err)">*</span></label>
+                <textarea x-model="feedbackProposed" rows="3" style="width:100%;box-sizing:border-box;padding:.5rem .625rem;border:1px solid var(--border);border-radius:.5rem;font-family:inherit;font-size:.875rem;background:var(--card);color:var(--ink);resize:vertical"></textarea>
+                <span x-show="feedbackErrors.proposed" x-text="feedbackErrors.proposed" style="font-size:.75rem;color:var(--err)"></span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.3rem;margin-bottom:.75rem">
+                <label style="font-size:.875rem;font-weight:600">¿Por qué mejoraría la app? <span style="color:var(--err)">*</span></label>
+                <textarea x-model="feedbackJustification" rows="3" style="width:100%;box-sizing:border-box;padding:.5rem .625rem;border:1px solid var(--border);border-radius:.5rem;font-family:inherit;font-size:.875rem;background:var(--card);color:var(--ink);resize:vertical"></textarea>
+                <span x-show="feedbackErrors.justification" x-text="feedbackErrors.justification" style="font-size:.75rem;color:var(--err)"></span>
+              </div>
+            </div>
+          </template>
+
+          <span x-show="feedbackServerErr" x-text="feedbackServerErr" style="display:block;font-size:.75rem;color:var(--err);margin-bottom:.5rem"></span>
+
+          <div style="display:flex;gap:.5rem;margin-top:.5rem">
+            <button @click="showFeedback = false" type="button" style="flex-shrink:0;padding:.5rem 1rem;background:transparent;border:1.5px solid var(--border);border-radius:.5rem;font-family:inherit;font-size:.875rem;cursor:pointer;color:var(--ink-2)">Cancelar</button>
+            <button @click="submitFeedback()" :disabled="feedbackLoading" type="button" style="flex:1;padding:.5rem 1rem;background:var(--ink);color:#f5f0e8;border:none;border-radius:.5rem;font-family:inherit;font-size:.875rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.5rem">
+              <span class="spinner" x-show="feedbackLoading" style="width:14px;height:14px"></span>
+              <span x-text="feedbackLoading ? '' : 'Enviar reporte'"></span>
+            </button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+  </template>
+
   <!-- ── Header ────────────────────────────────────────────────────────────── -->
   <header class="header">
     <div class="header__brand">
@@ -219,6 +366,21 @@
       <p class="section-label" x-show="updatedAt" style="font-size:0.75rem; white-space:nowrap;">
         Actualizado: <span x-text="updatedAt" style="color:var(--ink-2);"></span>
       </p>
+      <!-- Feedback -->
+      <button
+        @click="openFeedback()"
+        class="iconbtn"
+        type="button"
+        title="Reportar un problema"
+        aria-label="Reportar un problema"
+      >
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 7a3 3 0 0 1 6 0v9a3 3 0 0 1-6 0z"/>
+          <path d="M9 7 6 4M15 7l3-3"/>
+          <path d="M6 11H3M21 11h-3M6 15H3M21 15h-3"/>
+          <line x1="12" y1="7" x2="12" y2="16"/>
+        </svg>
+      </button>
       <!-- Toggle ARS / MEP -->
       <button
         @click="

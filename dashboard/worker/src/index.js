@@ -138,6 +138,9 @@ export default {
         const opId = url.pathname.split("/").pop();
         return await handleDeleteGracielaOp(request, env, opId);
       }
+      if (url.pathname === "/api/feedback" && request.method === "POST") {
+        return await handleFeedback(request, env, matchedOrigin);
+      }
       return new Response("Not found", { status: 404 });
     } catch (err) {
       // Si algo falla (IOL caído, token inválido, etc.), devolvemos el error
@@ -1344,6 +1347,34 @@ async function fetchMercadoFondoVCP(date) {
 }
 
 /** Lee una clave de KV, devuelve fallback si no existe. */
+async function handleFeedback(request, env, origin) {
+  let body;
+  try { body = await request.json(); } catch { return jsonResponse({ error: "INVALID_JSON" }, { status: 400, origin }); }
+
+  const { type, screen, tried, expected, happened, impact, proposed_change, justification } = body;
+
+  if (type !== "bug" && type !== "feature_request") {
+    return jsonResponse({ error: "VALIDATION_ERROR", message: "type must be bug or feature_request" }, { status: 400, origin });
+  }
+  if (type === "bug") {
+    if (!tried?.trim() || !expected?.trim() || !happened?.trim()) {
+      return jsonResponse({ error: "VALIDATION_ERROR", message: "tried, expected and happened are required" }, { status: 400, origin });
+    }
+  } else {
+    if (!proposed_change?.trim() || !justification?.trim()) {
+      return jsonResponse({ error: "VALIDATION_ERROR", message: "proposed_change and justification are required" }, { status: 400, origin });
+    }
+  }
+
+  const id  = crypto.randomUUID();
+  const now = new Date().toISOString();
+  await env.TOKEN_CACHE.put(
+    `feedback:${id}`,
+    JSON.stringify({ id, type, screen: screen ?? null, tried: tried ?? null, expected: expected ?? null, happened: happened ?? null, impact: impact ?? null, proposed_change: proposed_change ?? null, justification: justification ?? null, app: "inversiones", created_at: now }),
+  );
+  return jsonResponse({ ok: true }, { origin });
+}
+
 async function kvGet(env, key, fallback) {
   const val = await env.TOKEN_CACHE.get(key, { type: "json" });
   return val ?? fallback;
