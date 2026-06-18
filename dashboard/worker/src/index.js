@@ -1346,6 +1346,18 @@ async function fetchMercadoFondoVCP(date) {
   }
 }
 
+function getReporterEmail(request) {
+  const header = request.headers.get('CF-Access-Authenticated-User-Email');
+  if (header) return header;
+  const jwt = request.headers.get('CF-Access-Jwt-Assertion');
+  if (!jwt) return 'unknown';
+  try {
+    let b64 = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    b64 += '='.repeat((4 - b64.length % 4) % 4);
+    return JSON.parse(atob(b64)).email ?? 'unknown';
+  } catch { return 'unknown'; }
+}
+
 async function sendFeedbackEmail(apiKey, { to, subject, html }) {
   if (!apiKey || !to || to === "unknown" || !to.includes("@")) return;
   try {
@@ -1372,7 +1384,7 @@ async function handleFeedback(request, env, origin) {
   try { body = await request.json(); } catch { return jsonResponse({ error: "INVALID_JSON" }, { status: 400, origin }); }
 
   const { type, screen, tried, expected, happened, impact, proposed_change, justification } = body;
-  const reportedBy = request.headers.get("CF-Access-Authenticated-User-Email") ?? "unknown";
+  const reportedBy = getReporterEmail(request);
 
   if (type !== "bug" && type !== "feature_request") {
     return jsonResponse({ error: "VALIDATION_ERROR", message: "type must be bug or feature_request" }, { status: 400, origin });
