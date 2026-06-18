@@ -1346,12 +1346,33 @@ async function fetchMercadoFondoVCP(date) {
   }
 }
 
+async function sendFeedbackEmail(apiKey, { to, subject, html }) {
+  if (!apiKey || !to || to === "unknown" || !to.includes("@")) return;
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: "Pignus <noreply@pignuslabs.com.ar>", to, subject, html }),
+    });
+    if (!res.ok) console.error(`[email] Resend error ${res.status}`);
+  } catch (err) {
+    console.error("[email] Failed:", err.message);
+  }
+}
+
+function buildReceivedHtml({ type, screen }) {
+  const typeLabel = type === "bug" ? "Problema" : "Mejora";
+  const screenRow = screen ? `<tr><td style="padding:8px 0;border-bottom:1px solid #e8e2d9;font-size:13px;color:#6b7280;width:120px;">Pantalla</td><td style="padding:8px 0;border-bottom:1px solid #e8e2d9;font-size:13px;color:#1c1814;">${screen}</td></tr>` : "";
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#f5f0e8;font-family:Georgia,serif;color:#1c1814;"><table style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);" cellpadding="0" cellspacing="0" width="100%"><tr><td style="background:#1c1814;padding:24px 32px;"><p style="margin:0;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a89880;">Pignus Inversiones</p><h1 style="margin:4px 0 0;font-size:22px;font-weight:500;color:#f5f0e8;">Reporte recibido</h1></td></tr><tr><td style="padding:24px 32px;"><p style="margin:0 0 16px;font-size:15px;">Tu reporte fue recibido y será revisado próximamente.</p><table cellpadding="0" cellspacing="0" width="100%"><tr><td style="padding:8px 0;border-bottom:1px solid #e8e2d9;font-size:13px;color:#6b7280;width:120px;">Tipo</td><td style="padding:8px 0;border-bottom:1px solid #e8e2d9;font-size:13px;color:#1c1814;">${typeLabel}</td></tr>${screenRow}</table></td></tr><tr><td style="padding:0 32px 32px;"><a href="https://inversiones.pignuslabs.com.ar" style="display:inline-block;background:#1BBFA1;color:#ffffff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-family:sans-serif;font-weight:600;">Abrir Inversiones</a></td></tr><tr><td style="padding:16px 32px;background:#f5f0e8;border-top:1px solid #e8e2d9;"><p style="margin:0;font-size:11px;color:#9ca3af;font-family:sans-serif;">Este correo fue enviado automáticamente en respuesta a tu reporte.</p></td></tr></table></body></html>`;
+}
+
 /** Lee una clave de KV, devuelve fallback si no existe. */
 async function handleFeedback(request, env, origin) {
   let body;
   try { body = await request.json(); } catch { return jsonResponse({ error: "INVALID_JSON" }, { status: 400, origin }); }
 
   const { type, screen, tried, expected, happened, impact, proposed_change, justification } = body;
+  const reportedBy = request.headers.get("CF-Access-Authenticated-User-Email") ?? "unknown";
 
   if (type !== "bug" && type !== "feature_request") {
     return jsonResponse({ error: "VALIDATION_ERROR", message: "type must be bug or feature_request" }, { status: 400, origin });
@@ -1370,8 +1391,15 @@ async function handleFeedback(request, env, origin) {
   const now = new Date().toISOString();
   await env.TOKEN_CACHE.put(
     `feedback:${id}`,
-    JSON.stringify({ id, type, screen: screen ?? null, tried: tried ?? null, expected: expected ?? null, happened: happened ?? null, impact: impact ?? null, proposed_change: proposed_change ?? null, justification: justification ?? null, app: "inversiones", created_at: now }),
+    JSON.stringify({ id, type, screen: screen ?? null, tried: tried ?? null, expected: expected ?? null, happened: happened ?? null, impact: impact ?? null, proposed_change: proposed_change ?? null, justification: justification ?? null, reported_by: reportedBy, app: "inversiones", created_at: now }),
   );
+
+  await sendFeedbackEmail(env.RESEND_API_KEY, {
+    to: reportedBy,
+    subject: "Reporte recibido — Pignus Inversiones",
+    html: buildReceivedHtml({ type, screen }),
+  });
+
   return jsonResponse({ ok: true }, { origin });
 }
 
