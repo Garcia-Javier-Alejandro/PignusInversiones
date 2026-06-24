@@ -149,7 +149,8 @@ async function fetchMPHistory() {
   // argentinadatos tiene endpoint por día: /v1/finanzas/fci/mercadoDinero/{year}/{month}/{day}
   // Para obtener el rango histórico, usamos el endpoint por año/mes si existe,
   // o iteramos días hábiles del período.
-  const days = businessDays("2026-03-09", "2026-04-17");
+  const today = new Date().toISOString().split("T")[0];
+  const days = businessDays("2026-03-09", today);
   // Procesar en lotes para no saturar la API
   for (let i = 0; i < days.length; i += 5) {
     const batch = days.slice(i, i + 5);

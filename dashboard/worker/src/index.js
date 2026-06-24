@@ -224,6 +224,38 @@ async function handleHistory(request, env) {
     }
   }
 
+  // Segundo pase: interpolación lineal para fechas que siguen sin mpVcp
+  // (CAFCI publica VCP con demora T+1; el snapshot del día se guarda antes de que esté disponible).
+  {
+    const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
+    const fills  = new Map();
+    for (let i = 0; i < sorted.length; i++) {
+      if (sorted[i].mpVcp != null) continue;
+      let prev = null, next = null;
+      for (let j = i - 1; j >= 0; j--) {
+        if (sorted[j].mpVcp != null) { prev = sorted[j]; break; }
+      }
+      for (let j = i + 1; j < sorted.length; j++) {
+        if (sorted[j].mpVcp != null) { next = sorted[j]; break; }
+      }
+      let val = null;
+      if (prev && next) {
+        const t0 = new Date(prev.date).getTime();
+        const t1 = new Date(next.date).getTime();
+        const ti = new Date(sorted[i].date).getTime();
+        val = prev.mpVcp + (next.mpVcp - prev.mpVcp) * ((ti - t0) / (t1 - t0));
+      } else if (prev) {
+        val = prev.mpVcp;
+      } else if (next) {
+        val = next.mpVcp;
+      }
+      if (val) fills.set(sorted[i].date, val);
+    }
+    for (const snap of snapshots) {
+      if (fills.has(snap.date)) { snap.mpVcp = fills.get(snap.date); snapshotsChanged = true; }
+    }
+  }
+
   // Backfill mep: 1) lookup estático exacto, 2) argentinadatos.com con fallback a días cercanos.
   for (const snap of snapshots) {
     if (snap.mep == null || snap.mep <= 1) {
