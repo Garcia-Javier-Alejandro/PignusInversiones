@@ -15,12 +15,8 @@ Generación de resúmenes periódicos del estado de las cuentas de inversión, c
 ### Pignus
 Cuenta administrada en **IOL (InvertirOnline)**, titulares: **Graciela y Fiorella**.
 
-#### Workflow mensual
-1. Subir a `Pignus/` el **Detalle de Operaciones** y el **Estado de Cuenta** del período, exportados desde IOL.
-2. Solicitar la generación del resumen mensual.
-3. El resumen incluye análisis de la cartera y una lista de **accionables** para el mes.
+La cuenta IOL es única, pero el dashboard separa internamente dos sub-portfolios: **Pignus** (empresa) y **Graciela** (inversiones personales). Ver § *Gestión de dos carteras* más abajo.
 
----
 
 ## Dashboard web — Pignus
 
@@ -180,11 +176,13 @@ El dashboard tiene dos pestañas: **Pignus** y **Graciela**. Al cambiar de pesta
 - **Rendimiento 30d:** pendiente (requiere historial suficiente).
 
 #### Gráfico histórico
-- Tres líneas: Pignus (área rellena), S&P 500, Mercado Pago.
+- Tres líneas: cartera activa (área rellena), S&P 500, Mercado Pago.
+- Cuando se ve el tab Graciela, la curva de Pignus se superpone como overlay normalizado (punteado violeta) y viceversa.
 - Anotaciones verticales punteadas en fechas de depósito/retiro detectados.
 - Los depósitos se anclan al snapshot más cercano en o después de su fecha (el eje X solo tiene fechas de snapshot).
 - Selector de período: 1M / 3M / 6M / Todo. Los benchmarks siempre se acumulan desde el inicio; el filtro solo recorta el rango visible.
 - Toggle ARS / USD MEP: celeste = ARS, verde = MEP.
+- Botón **×¾**: escala los benchmarks (S&P 500 y MP) al 75% de su retorno desde el día 0, para compararlos con una cartera más conservadora. La etiqueta cambia a `S&P 500 (×0.75)` / `MP (×0.75)` cuando está activo.
 
 #### Panel "Composición y Rendimiento"
 - **Treemap (default):** tamaño de bloque = peso en cartera. Color = rendimiento del sector/tipo desde PPC (paleta estilo Finviz: charcoal oscuro en 0%, rojo saturado en −10%, verde brillante en +10%). Labels muestran el rendimiento %, no el peso.
@@ -240,6 +238,7 @@ Con ~20 posiciones por día y ~70 bytes/posición comprimida:
 | POST | `/api/mp-rate` | Registra tasa diaria MP manual (legado) |
 | GET | `/api/portfolio?portfolio=pignus\|graciela` | Portafolio dividido: solo las posiciones del sub-portafolio indicado |
 | GET | `/api/account?portfolio=pignus\|graciela` | Estado de cuenta dividido: efectivo disponible del sub-portafolio |
+| GET | `/api/history?portfolio=pignus` | Historial de Pignus: combinado menos la porción de Graciela, con depósitos de Graciela excluidos |
 | GET | `/api/history?portfolio=graciela` | Historial de Graciela reconstruido desde `graciela_operations` + `positions_history` |
 | GET | `/api/graciela/operations` | Lista de operaciones de Graciela |
 | POST | `/api/graciela/operations` | Agrega una operación individual |
@@ -288,6 +287,65 @@ El mapa `SECTORES` en `app.js` es hardcodeado. Para un activo nuevo: agregar `S�
 
 ---
 
+---
+
+## Reporte mensual
+
+Al cierre de cada mes se genera un resumen con dos tablas (Pignus y Graciela) más la comparación contra benchmarks de mercado.
+
+### Qué incluye
+
+**Por cuenta:**
+- Capital al inicio del mes
+- Aportes y retiros del período
+- Valor al primer día del mes siguiente
+- Resultado del mes ($  y %)
+- Resultado acumulado desde el inicio (ganancia neta sobre capital total invertido)
+
+**Comparación de mercado:**
+- Retorno del mes de Pignus y Graciela
+- S&P 500 CEDEAR (precio ARS inicio → fin de mes)
+- Mercado Pago Clase A (VCP CAFCI, retorno mensual y TNA)
+
+### Proceso — paso a paso
+
+**1. Descargar los datos KV** (PowerShell, desde la raíz del repo):
+
+```powershell
+$NS = "8c1461c1de29450ba42172257fcfdeda"
+npx wrangler kv key get --namespace-id=$NS --remote "portfolio_history"   | Out-File -Encoding utf8 "$env:TEMP\port_hist.json"
+npx wrangler kv key get --namespace-id=$NS --remote "positions_history"   | Out-File -Encoding utf8 "$env:TEMP\pos_hist.json"
+npx wrangler kv key get --namespace-id=$NS --remote "deposits"            | Out-File -Encoding utf8 "$env:TEMP\deposits.json"
+npx wrangler kv key get --namespace-id=$NS --remote "graciela_operations" | Out-File -Encoding utf8 "$env:TEMP\graciela_ops.json"
+```
+
+**2. Ejecutar el script** (pasa el mes como `YYYY-MM`; sin argumento usa el mes anterior):
+
+```powershell
+node scripts/monthly_report.mjs 2026-06
+```
+
+El script imprime las tablas directamente en la consola. También consulta la API de argentinadatos.com para el VCP del fondo MP al inicio y fin del período.
+
+### Notas sobre los cálculos
+
+- **Pignus resultado del mes** = valor al cierre − valor al inicio − aportes del mes. Como Pignus no tuvo aportes en junio, coincide con la variación pura de mercado.
+- **Graciela resultado del mes** = valor al cierre − aportes del mes. La base de comparación son los aportes porque ella comenzó en junio (capital al inicio = $0).
+- **Resultado acumulado Pignus** = (valor actual − suma total de aportes históricos) / suma total de aportes. Refleja la ganancia neta en pesos sobre todo el capital depositado.
+- **Resultado acumulado Graciela** = igual, pero solo sus depósitos registrados en `graciela_operations`.
+- **S&P 500** = variación del precio CEDEAR SPY en ARS entre el primer snapshot disponible del mes y el primer snapshot del mes siguiente, tomados de `positions_history`.
+- **Mercado Pago** = variación del VCP del Mercado Fondo Clase A (CAFCI) entre el primer y último día del período, con TNA anualizada como `(1 + mensual)^12 − 1`. Fuente: `api.argentinadatos.com`. Si el día exacto no tiene dato (el CAFCI publica con delay T+1 y no todos los días hábiles), se usa el último snapshot disponible en el KV.
+
+### Actualizar operaciones de Graciela antes del reporte
+
+Si hubo compras, ventas o depósitos de Graciela durante el mes, actualizar `Gra_JSON` y sincronizar **antes** de descargar los datos:
+
+```bash
+node scripts/sync_graciela.mjs
+```
+
+---
+
 ## To Do
 
 ### Dashboard — corto plazo
@@ -306,7 +364,7 @@ El mapa `SECTORES` en `app.js` es hardcodeado. Para un activo nuevo: agregar `S�
 - [x] **Toggle ARS/MEP en mobile:** dos causas. (1) `touch-action: manipulation` en el botón elimina el delay de 300ms de iOS/Android. (2) `$watch('moneda')` ahora usa `$nextTick` para que Alpine flushee los `x-text` del DOM antes de que el re-render del canvas del historial bloquee el hilo.
 
 ### Dashboard — mediano plazo
-- [ ] **Reporte mensual generado automáticamente:** requiere snapshot completo de posiciones. El reporte incluiría: valor inicio/fin de mes, depósitos del período, rendimiento ajustado, performance por posición, atribución por sector, comparación vs benchmarks, efecto moneda.
+- [x] **Reporte mensual (proceso manual documentado):** ver § *Reporte mensual* en este README. Script `scripts/monthly_report.mjs` genera las tablas de Pignus y Graciela con un solo comando una vez que los datos KV están descargados.
 - [ ] **Selector de fecha de inicio personalizado** para el cálculo de rendimiento (algunos activos pueden haberse comprado después del primer snapshot).
 - [ ] **Vista mobile optimizada:** colapsar el treemap a un resumen de texto en pantallas muy chicas.
 - [ ] **Modo offline / PWA:** cachear el último estado válido para ver sin conexión.
@@ -331,18 +389,17 @@ Inversiones/
 │   ├── worker/
 │   │   ├── src/index.js          ← Worker: auth IOL, KV cache, todos los endpoints
 │   │   └── wrangler.toml         ← config Wrangler (binding KV, nombre worker)
-│   └── frontend/
-│       ├── index.html            ← UI (Alpine.js + Tailwind + Chart.js, todo CDN)
-│       ├── app.js                ← toda la lógica JS: fetch, cálculos, gráficos
-│       └── _headers              ← headers de seguridad HTTP para Pages
-├── Gra_JSON                          ← operaciones de Graciela (una por línea, JSON)
+│   ├── frontend/
+│   │   ├── index.html            ← UI (Alpine.js + Chart.js, todo CDN)
+│   │   ├── app.js                ← toda la lógica JS: fetch, cálculos, gráficos
+│   │   └── _headers              ← headers de seguridad HTTP para Pages
+│   └── scripts/
+│       └── build-history.mjs     ← construye positions_history desde cero (uso único)
+├── Gra_JSON                      ← operaciones de Graciela (una por línea, JSON)
 ├── scripts/
 │   ├── sync_graciela.mjs         ← sube Gra_JSON al Worker (PUT /api/graciela/operations/import)
-│   └── test_iol_api.py           ← test de conexión a la API de IOL
-├── Pignus/
-│   ├── datos/                    ← CSVs exportados desde IOL
-│   └── resumenes/                ← PDFs de resúmenes generados
-├── Inviu/                        ← resúmenes históricos de referencia (formato base)
+│   ├── monthly_report.mjs        ← genera tablas resumen mensuales (Pignus + Graciela)
+│   └── generate_report_from_json.mjs  ← reporte detallado de posiciones (legado)
 ├── secrets.env                   ← credenciales locales (gitignoreado)
 └── secrets_example               ← ejemplo de formato de secrets.env
 ```
